@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddressInput } from "@/components/AddressInput";
+import { RouteResults } from "@/components/RouteResults";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
+import { optimizeRoute, OptimizedRoute } from "@/utils/routeOptimizer";
 import { toast } from "sonner";
-import { Plus, Settings as SettingsIcon, Route, AlertCircle } from "lucide-react";
+import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface Address {
@@ -17,6 +19,8 @@ const Index = () => {
     Array(10).fill({ value: "", placeId: undefined })
   );
   const [apiKey, setApiKey] = useState("");
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
   const { isLoaded, error } = useGoogleMaps(apiKey);
 
   useEffect(() => {
@@ -47,7 +51,7 @@ const Index = () => {
     toast.success("10 fält tillagda");
   };
 
-  const handleOptimize = () => {
+  const handleOptimize = async () => {
     if (!apiKey) {
       toast.error("Lägg till din API-nyckel i inställningar först");
       return;
@@ -59,7 +63,32 @@ const Index = () => {
       return;
     }
 
-    toast.info("Ruttoptimering kommer snart...");
+    if (filledAddresses.length > 27) {
+      toast.error("Google Maps stödjer max 27 stopp. Ta bort några adresser.");
+      return;
+    }
+
+    setIsOptimizing(true);
+    setOptimizedRoute(null);
+
+    try {
+      const result = await optimizeRoute(filledAddresses, apiKey);
+      setOptimizedRoute(result);
+      toast.success(`Rutt optimerad! ${result.segments.length} stopp`);
+      
+      // Scrolla till resultat
+      setTimeout(() => {
+        document.getElementById("route-results")?.scrollIntoView({ 
+          behavior: "smooth",
+          block: "start"
+        });
+      }, 100);
+    } catch (error: any) {
+      console.error("Optimization error:", error);
+      toast.error(error.message || "Kunde inte optimera rutten");
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   const filledCount = addresses.filter((addr) => addr.value.trim() !== "").length;
@@ -147,15 +176,37 @@ const Index = () => {
               </Button>
               <Button
                 onClick={handleOptimize}
-                disabled={!apiKey || !isLoaded || filledCount < 2}
+                disabled={!apiKey || !isLoaded || filledCount < 2 || isOptimizing}
                 className="h-12 flex-1 text-base font-semibold"
               >
-                <Route className="h-5 w-5 mr-2" />
-                Optimera rutt
+                {isOptimizing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Optimerar...
+                  </>
+                ) : (
+                  <>
+                    <Route className="h-5 w-5 mr-2" />
+                    Optimera rutt
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Results */}
+        {optimizedRoute && (
+          <div id="route-results">
+            <RouteResults
+              segments={optimizedRoute.segments}
+              totalDistance={optimizedRoute.totalDistance}
+              totalDuration={optimizedRoute.totalDuration}
+              polyline={optimizedRoute.polyline}
+              apiKey={apiKey}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

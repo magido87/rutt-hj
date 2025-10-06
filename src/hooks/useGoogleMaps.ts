@@ -18,7 +18,7 @@ export const useGoogleMaps = (apiKey: string) => {
 
     // Load the Google Maps script
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&language=sv`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&language=sv`;
     script.async = true;
     script.defer = true;
 
