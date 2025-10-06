@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RouteMap } from "@/components/RouteMap";
+import { TrafficTicker } from "@/components/TrafficTicker";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ExportMenu } from "@/components/ExportMenu";
 import { SendEmailDialog } from "@/components/SendEmailDialog";
@@ -28,6 +29,12 @@ interface OptimizedRoute {
   warnings?: string[];
   departureTime?: number;
   routeMode?: "standard" | "traffic";
+  alternativeRoutes?: Array<{
+    segments: RouteSegment[];
+    totalDistance: number;
+    totalDuration: number;
+    polyline: string;
+  }>;
 }
 
 const formatDistance = (meters: number): string => {
@@ -48,6 +55,7 @@ export default function MapView() {
   const location = useLocation();
   const navigate = useNavigate();
   const [routeData, setRouteData] = useState<OptimizedRoute | null>(null);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [apiKey, setApiKey] = useState("");
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -129,7 +137,12 @@ export default function MapView() {
     );
   }
 
-  const { segments, totalDistance, totalDuration, polyline, apiCalls, warnings } = routeData;
+  const { segments, totalDistance, totalDuration, polyline, apiCalls, warnings, alternativeRoutes } = routeData;
+  
+  // Välj vilken rutt som ska visas (huvudrutt eller alternativ)
+  const currentRoute = selectedRouteIndex === 0 
+    ? { segments, totalDistance, totalDuration, polyline }
+    : alternativeRoutes?.[selectedRouteIndex - 1] || { segments, totalDistance, totalDuration, polyline };
 
   return (
     <div className="min-h-screen bg-background">
@@ -175,7 +188,10 @@ export default function MapView() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8">
+      <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Trafikvarningar */}
+        <TrafficTicker />
+        
         <Card className="border-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -186,19 +202,19 @@ export default function MapView() {
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
                 <span>
-                  <strong>{segments.length}</strong> stopp
+                  <strong>{currentRoute.segments.length}</strong> stopp
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Route className="h-4 w-4" />
                 <span>
-                  <strong>{formatDistance(totalDistance)}</strong> total
+                  <strong>{formatDistance(currentRoute.totalDistance)}</strong> total
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 <span>
-                  <strong>{formatDuration(totalDuration)}</strong> körtid
+                  <strong>{formatDuration(currentRoute.totalDuration)}</strong> körtid
                 </span>
               </div>
               {apiCalls && (
@@ -231,6 +247,44 @@ export default function MapView() {
                 <strong>OBS:</strong> {warnings.join(" • ")}
               </div>
             )}
+            
+            {/* Alternativa rutter */}
+            {alternativeRoutes && alternativeRoutes.length > 0 && (
+              <div className="mt-4 p-4 border rounded-lg bg-muted/20">
+                <h3 className="text-sm font-semibold mb-3">Alternativa rutter</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <Button
+                    variant={selectedRouteIndex === 0 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedRouteIndex(0)}
+                    className="w-full"
+                  >
+                    <div className="text-left w-full">
+                      <div className="font-semibold">Huvudrutt</div>
+                      <div className="text-xs opacity-80">
+                        {formatDistance(totalDistance)} • {formatDuration(totalDuration)}
+                      </div>
+                    </div>
+                  </Button>
+                  {alternativeRoutes.map((alt, idx) => (
+                    <Button
+                      key={idx}
+                      variant={selectedRouteIndex === idx + 1 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedRouteIndex(idx + 1)}
+                      className="w-full"
+                    >
+                      <div className="text-left w-full">
+                        <div className="font-semibold">Alternativ {idx + 1}</div>
+                        <div className="text-xs opacity-80">
+                          {formatDistance(alt.totalDistance)} • {formatDuration(alt.totalDuration)}
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="map" className="w-full">
@@ -244,17 +298,17 @@ export default function MapView() {
               </TabsList>
 
               <TabsContent value="map" className="mt-4">
-                <RouteMap apiKey={apiKey} polyline={polyline} segments={segments} />
+                <RouteMap apiKey={apiKey} polyline={currentRoute.polyline} segments={currentRoute.segments} />
               </TabsContent>
 
               <TabsContent value="list" className="space-y-2 mt-4">
-                {segments.map((segment, index) => (
+                {currentRoute.segments.map((segment, index) => (
                   <Card
                     key={index}
                     className={`border-l-4 ${
                       index === 0
                         ? "border-l-accent"
-                        : index === segments.length - 1
+                        : index === currentRoute.segments.length - 1
                         ? "border-l-destructive"
                         : "border-l-primary"
                     }`}
@@ -269,6 +323,16 @@ export default function MapView() {
                             <span className="font-medium text-foreground">
                               {segment.address}
                             </span>
+                            {index === 0 && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-accent text-accent-foreground">
+                                Start
+                              </span>
+                            )}
+                            {index === currentRoute.segments.length - 1 && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-destructive text-destructive-foreground">
+                                Slut
+                              </span>
+                            )}
                           </div>
                           {index > 0 && (
                             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground ml-7">

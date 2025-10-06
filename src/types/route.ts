@@ -19,6 +19,12 @@ export interface OptimizedRoute {
   polyline: string;
   apiCalls: number;
   warnings?: string[];
+  alternativeRoutes?: Array<{
+    segments: RouteSegment[];
+    totalDistance: number;
+    totalDuration: number;
+    polyline: string;
+  }>;
 }
 
 export interface SavedRoute {

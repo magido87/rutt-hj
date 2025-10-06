@@ -21,6 +21,12 @@ export interface OptimizedRoute {
   polyline: string;
   apiCalls: number;
   warnings?: string[];
+  alternativeRoutes?: Array<{
+    segments: RouteSegment[];
+    totalDistance: number;
+    totalDuration: number;
+    polyline: string;
+  }>;
 }
 
 // Routes API 2.0 interfaces
@@ -206,6 +212,19 @@ export const optimizeRoute = async (
 
       const route = result.routes[0];
       
+      // Extrahera alternativa rutter om de finns
+      const alternativeRoutes = result.routes.slice(1, 3).map((altRoute: any) => {
+        const altResult = buildRouteResultFromRoutesAPI(altRoute, addresses, 0, [], google);
+        return {
+          segments: altResult.segments,
+          totalDistance: altResult.totalDistance,
+          totalDuration: altResult.totalDuration,
+          polyline: altRoute.polyline?.encodedPolyline || "",
+        };
+      });
+      
+      console.log(`🔀 Hittade ${alternativeRoutes.length} alternativa rutter`);
+      
       // Detaljerad loggning av trafikdata
       console.log("=== TRAFIKDATA ANALYS (Routes API 2.0) ===");
       console.log("Antal legs:", route.legs?.length || 0);
@@ -248,7 +267,14 @@ export const optimizeRoute = async (
       }
       console.log("====================");
 
-      return buildRouteResultFromRoutesAPI(route, addresses, apiCalls, warnings, google);
+      const optimizedResult = buildRouteResultFromRoutesAPI(route, addresses, apiCalls, warnings, google);
+      
+      // Lägg till alternativa rutter
+      if (alternativeRoutes.length > 0) {
+        optimizedResult.alternativeRoutes = alternativeRoutes;
+      }
+      
+      return optimizedResult;
     } catch (error: any) {
       console.error("❌ Route optimization error:", error);
       throw error;
