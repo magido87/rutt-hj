@@ -216,8 +216,8 @@ const Index = () => {
       console.log(`⏱️ TOTAL TID: ${Math.floor(result.totalDuration / 3600)}h ${Math.floor((result.totalDuration % 3600) / 60)}min`);
       console.log(`📏 TOTAL STRÄCKA: ${(result.totalDistance / 1000).toFixed(1)} km`);
       
-      // Spara hela det optimerade resultatet
-      saveRoute(result);
+      // Spara hela det optimerade resultatet med avresetid
+      saveRoute(result, apiDepartureTime, routeMode);
       
       setOptimizedRoute(result);
       toast.success(`Rutt optimerad! ${result.segments.length} stopp`);
@@ -225,7 +225,13 @@ const Index = () => {
       // Navigera till karta-sidan med resultatet
       console.log("🗺️ Navigerar till /karta");
       navigate("/karta", { 
-        state: { routeData: result }
+        state: { 
+          routeData: {
+            ...result,
+            departureTime: apiDepartureTime?.getTime(),
+            routeMode: routeMode
+          }
+        }
       });
     } catch (error: any) {
       console.error("❌ Optimeringsfel:", error);

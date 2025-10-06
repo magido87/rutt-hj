@@ -26,6 +26,8 @@ interface OptimizedRoute {
   polyline: string;
   apiCalls: number;
   warnings?: string[];
+  departureTime?: number;
+  routeMode?: "standard" | "traffic";
 }
 
 const formatDistance = (meters: number): string => {
@@ -202,6 +204,25 @@ export default function MapView() {
               {apiCalls && (
                 <div className="text-xs text-muted-foreground">
                   ({apiCalls} API-anrop)
+                </div>
+              )}
+              {routeData.departureTime && (
+                <div className="flex items-center gap-2 text-accent font-semibold">
+                  <span>🚦</span>
+                  <span>
+                    {new Date(routeData.departureTime).toLocaleDateString("sv-SE", {
+                      month: "short",
+                      day: "numeric",
+                    })} kl {new Date(routeData.departureTime).toLocaleTimeString("sv-SE", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+              )}
+              {routeData.routeMode === "standard" && (
+                <div className="flex items-center gap-2">
+                  <span>📍 Standard</span>
                 </div>
               )}
             </div>

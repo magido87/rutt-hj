@@ -3,7 +3,11 @@ import { SavedRoute } from "@/types/route";
 const STORAGE_KEY = "saved_routes";
 const MAX_SAVED_ROUTES = 5;
 
-export const saveRoute = (routeData: any): void => {
+export const saveRoute = (
+  routeData: any, 
+  departureTime?: Date,
+  routeMode?: "standard" | "traffic"
+): void => {
   try {
     const existingRoutes = getSavedRoutes();
     
@@ -14,6 +18,8 @@ export const saveRoute = (routeData: any): void => {
       startAddress: routeData.segments[0]?.address || "Start",
       endAddress: routeData.segments[routeData.segments.length - 1]?.address || "Slut",
       totalStops: routeData.segments.length,
+      departureTime: departureTime?.getTime(),
+      routeMode: routeMode || "standard",
     };
 
     // Lägg till först i listan

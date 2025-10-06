@@ -96,12 +96,32 @@ export const SavedRoutes = () => {
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 flex-wrap">
                     <Clock className="h-3 w-3" />
                     <span>{formatDate(route.timestamp)}</span>
                     <span>•</span>
                     <MapPin className="h-3 w-3" />
                     <span>{route.totalStops} stopp</span>
+                    {route.departureTime && (
+                      <>
+                        <span>•</span>
+                        <span className="text-accent font-medium">
+                          🚦 {new Date(route.departureTime).toLocaleDateString("sv-SE", {
+                            month: "short",
+                            day: "numeric",
+                          })} kl {new Date(route.departureTime).toLocaleTimeString("sv-SE", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </>
+                    )}
+                    {route.routeMode === "standard" && (
+                      <>
+                        <span>•</span>
+                        <span className="text-muted-foreground">📍 Standard</span>
+                      </>
+                    )}
                   </div>
                   <div className="space-y-1 text-sm">
                     <div className="flex items-start gap-2">

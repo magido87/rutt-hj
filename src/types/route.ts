@@ -28,4 +28,6 @@ export interface SavedRoute {
   startAddress: string;
   endAddress: string;
   totalStops: number;
+  departureTime?: number; // Unix timestamp för vald avresetid
+  routeMode?: "standard" | "traffic";
 }
