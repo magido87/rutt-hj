@@ -6,6 +6,7 @@ import { AddressInput } from "@/components/AddressInput";
 import { StartEndInput } from "@/components/StartEndInput";
 import { SavedRoutes } from "@/components/SavedRoutes";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BulkImport } from "@/components/BulkImport";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,7 +17,7 @@ import { saveRoute } from "@/utils/routeStorage";
 import { getSettings } from "@/types/settings";
 import { Address } from "@/types/route";
 import { toast } from "sonner";
-import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2, CalendarIcon, Clock } from "lucide-react";
+import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2, CalendarIcon, Clock, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -106,6 +107,9 @@ const Index = () => {
   const [departureDate, setDepartureDate] = useState<Date | undefined>(undefined);
   const [departureTime, setDepartureTime] = useState("07:00");
   
+  // Bulk import
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  
   const { isLoaded, error } = useGoogleMaps(apiKey);
 
   useEffect(() => {
@@ -145,6 +149,19 @@ const Index = () => {
     ];
     setAddresses(newAddresses);
     toast.success("10 fält tillagda");
+  };
+
+  const handleBulkImport = (importedAddresses: Address[]) => {
+    // Ta bort tomma adresser först
+    const nonEmptyAddresses = addresses.filter(addr => addr.value.trim() !== "");
+    
+    // Lägg till importerade adresser
+    const newAddresses = [...nonEmptyAddresses, ...importedAddresses];
+    
+    // Lägg till ett tomt fält i slutet
+    newAddresses.push({ value: "", placeId: undefined });
+    
+    setAddresses(newAddresses);
   };
 
   const handleOptimize = async () => {
@@ -429,6 +446,15 @@ const Index = () => {
                 Rensa lista
               </Button>
               <Button
+                onClick={() => setShowBulkImport(true)}
+                variant="outline"
+                className="h-12 flex-1"
+                disabled={!apiKey || !isLoaded}
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                Bulk Import
+              </Button>
+              <Button
                 onClick={handleAddMore}
                 variant="outline"
                 className="h-12 flex-1"
@@ -457,6 +483,14 @@ const Index = () => {
           </CardContent>
         </Card>
       </main>
+
+      {/* Bulk Import Dialog */}
+      <BulkImport
+        open={showBulkImport}
+        onOpenChange={setShowBulkImport}
+        onImport={handleBulkImport}
+        apiKey={apiKey}
+      />
     </div>
   );
 };
