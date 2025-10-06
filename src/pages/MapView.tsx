@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RouteMap } from "@/components/RouteMap";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ExportMenu } from "@/components/ExportMenu";
 import { ArrowLeft, MapPin, Clock, Route, AlertCircle } from "lucide-react";
 
 interface RouteSegment {
@@ -107,11 +108,18 @@ export default function MapView() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h1 className="text-xl md:text-3xl font-bold text-foreground">
               Optimerad rutt
             </h1>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              segments={segments}
+              totalDistance={totalDistance}
+              totalDuration={totalDuration}
+            />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
