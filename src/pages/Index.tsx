@@ -6,6 +6,7 @@ import { AddressInput } from "@/components/AddressInput";
 import { StartEndInput } from "@/components/StartEndInput";
 import { SavedRoutes } from "@/components/SavedRoutes";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { FontToggle } from "@/components/FontToggle";
 import { BulkImport } from "@/components/BulkImport";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -273,6 +274,7 @@ const Index = () => {
             Ruttoptimering
           </h1>
           <div className="flex items-center gap-2">
+            <FontToggle />
             <ThemeToggle />
             <Link to="/settings">
               <Button variant="outline" className="h-12 px-4">
