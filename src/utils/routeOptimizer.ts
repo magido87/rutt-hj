@@ -134,15 +134,49 @@ export const optimizeRoute = async (
         directionsService.route(requestOptions, (result: any, status: any) => {
           console.log("📡 Directions API svar:", status);
           if (status === "OK") {
-            // Logga om vi fick trafikdata
-            if (result.routes[0].legs[0].duration_in_traffic) {
-              console.log("✅ Trafikdata mottagen!");
-              const normalDuration = result.routes[0].legs[0].duration.value;
-              const trafficDuration = result.routes[0].legs[0].duration_in_traffic.value;
-              console.log(`⏱️ Normal: ${Math.round(normalDuration/60)}min, Med trafik: ${Math.round(trafficDuration/60)}min`);
+            // Detaljerad loggning av trafikdata
+            console.log("=== TRAFIKDATA ANALYS ===");
+            console.log("Antal legs:", result.routes[0].legs.length);
+            
+            let totalNormal = 0;
+            let totalTraffic = 0;
+            let hasTrafficData = false;
+            
+            result.routes[0].legs.forEach((leg: any, i: number) => {
+              const normalDuration = leg.duration.value;
+              const trafficDuration = leg.duration_in_traffic?.value;
+              const distance = leg.distance.value;
+              
+              totalNormal += normalDuration;
+              
+              console.log(`Leg ${i+1}:`);
+              console.log(`  📍 ${leg.start_address.substring(0, 40)}... → ${leg.end_address.substring(0, 40)}...`);
+              console.log(`  📏 Avstånd: ${(distance/1000).toFixed(1)} km`);
+              console.log(`  ⏱️ Standard tid: ${Math.round(normalDuration/60)} min`);
+              
+              if (trafficDuration) {
+                hasTrafficData = true;
+                totalTraffic += trafficDuration;
+                const diff = trafficDuration - normalDuration;
+                const diffMin = Math.round(diff / 60);
+                console.log(`  🚦 Med trafik: ${Math.round(trafficDuration/60)} min (${diffMin > 0 ? '+' : ''}${diffMin} min)`);
+              } else {
+                console.log(`  ⚠️ Ingen trafikdata`);
+                totalTraffic += normalDuration;
+              }
+            });
+            
+            console.log("=== TOTALT ===");
+            console.log(`Standard tid: ${Math.round(totalNormal/60)} min (${(totalNormal/3600).toFixed(1)} h)`);
+            if (hasTrafficData) {
+              console.log(`Med trafik: ${Math.round(totalTraffic/60)} min (${(totalTraffic/3600).toFixed(1)} h)`);
+              const totalDiff = totalTraffic - totalNormal;
+              console.log(`Skillnad: ${Math.round(totalDiff/60)} min (${totalDiff > 0 ? 'längre' : 'kortare'} med trafik)`);
             } else {
-              console.log("⚠️ Ingen trafikdata i svaret");
+              console.log("⚠️ INGEN TRAFIKDATA I NÅGOT LEG - Kontrollera API-inställningar");
             }
+            console.log("====================");
+            
             resolve(result);
           } else if (status === "ZERO_RESULTS") {
             reject(new Error("Inga rutter hittades mellan dessa adresser"));
