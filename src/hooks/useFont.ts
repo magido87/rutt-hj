@@ -10,9 +10,17 @@ export const useFont = () => {
 
   useEffect(() => {
     const root = document.documentElement;
+    
+    // Ta bort alla font-klasser
     root.classList.remove("font-inter", "font-manrope", "font-system");
+    
+    // Lägg till ny font-klass
     root.classList.add(`font-${font}`);
+    
+    // Spara i localStorage
     localStorage.setItem("font", font);
+    
+    console.log("Font changed to:", font);
   }, [font]);
 
   const toggleFont = () => {

@@ -229,14 +229,18 @@ export const optimizeRoute = async (
 
   // Alla legs
   allLegs.forEach((leg: any, index: number) => {
-    cumulativeDistance += leg.distance.value;
-    cumulativeDuration += leg.duration.value;
+    const distance = leg.distance.value;
+    // Använd duration_in_traffic om tillgänglig (trafikdata), annars vanlig duration
+    const duration = leg.duration_in_traffic?.value || leg.duration.value;
+    
+    cumulativeDistance += distance;
+    cumulativeDuration += duration;
 
     segments.push({
       order: index + 2,
       address: addresses[index + 1]?.value || leg.end_address,
-      distance: leg.distance.value,
-      duration: leg.duration.value,
+      distance: distance,
+      duration: duration,
       cumulativeDistance,
       cumulativeDuration,
     });
@@ -289,8 +293,17 @@ const buildRouteResult = (
   console.log("🗺️ Bearbetar", legs.length, "legs");
 
   legs.forEach((leg: any, index: number) => {
-    cumulativeDistance += leg.distance.value;
-    cumulativeDuration += leg.duration.value;
+    const distance = leg.distance.value;
+    // Använd duration_in_traffic om tillgänglig (trafikdata), annars vanlig duration
+    const duration = leg.duration_in_traffic?.value || leg.duration.value;
+    
+    // Logga för debugging
+    if (leg.duration_in_traffic) {
+      console.log(`🚦 Leg ${index + 1}: Trafik ${Math.round(duration/60)}min vs Standard ${Math.round(leg.duration.value/60)}min`);
+    }
+    
+    cumulativeDistance += distance;
+    cumulativeDuration += duration;
 
     let addressIndex: number;
     if (index === legs.length - 1) {
@@ -307,8 +320,8 @@ const buildRouteResult = (
     segments.push({
       order: index + 2,
       address: addresses[addressIndex]?.value || leg.end_address,
-      distance: leg.distance.value,
-      duration: leg.duration.value,
+      distance: distance,
+      duration: duration,
       cumulativeDistance,
       cumulativeDuration,
     });
