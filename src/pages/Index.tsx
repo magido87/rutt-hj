@@ -15,9 +15,18 @@ interface Address {
 
 const Index = () => {
   const navigate = useNavigate();
-  const [addresses, setAddresses] = useState<Address[]>(
-    Array(10).fill({ value: "", placeId: undefined })
-  );
+  const [addresses, setAddresses] = useState<Address[]>([
+    { value: "Fraktvägen, Mölnlycke", placeId: undefined },
+    { value: "Dalhemsvägen 2, Torslanda", placeId: undefined },
+    { value: "Lingonvägen 35, Floda", placeId: undefined },
+    { value: "Importgatan, Hisings backa", placeId: undefined },
+    { value: "Tranvägen Sävedalen", placeId: undefined },
+    { value: "Tranbärsvägen, Floda", placeId: undefined },
+    { value: "Norra dalhemsvägen, Torslanda", placeId: undefined },
+    { value: "Exportgatan, Hisings backa", placeId: undefined },
+    { value: "Fraktvägen Mölnlycke", placeId: undefined },
+    { value: "", placeId: undefined },
+  ]);
   const [apiKey, setApiKey] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
