@@ -51,7 +51,8 @@ const stitchPolylines = (polylines: string[], google: any): string => {
 
 export const optimizeRoute = async (
   addresses: Address[],
-  apiKey: string
+  apiKey: string,
+  departureTime?: Date
 ): Promise<OptimizedRoute> => {
   console.log("🔧 optimizeRoute() START", { addressCount: addresses.length });
   
@@ -68,10 +69,14 @@ export const optimizeRoute = async (
   const warnings: string[] = [];
   let apiCalls = 0;
 
-  // Hämta inställningar för trafikmodell
+  // Hämta inställningar för trafikmodell (används endast om departureTime finns)
   const settings = getSettings();
   const trafficModel = settings.trafficModel || "best_guess";
-  console.log("🚦 Använder trafikmodell:", trafficModel);
+  if (departureTime) {
+    console.log("🚦 Trafikoptimerad med modell:", trafficModel);
+  } else {
+    console.log("📍 Standard-rutt (ingen trafikdata)");
+  }
 
   // Start och slutpunkt
   const origin = addresses[0].value;
@@ -104,10 +109,12 @@ export const optimizeRoute = async (
           waypoints: allWaypoints,
           optimizeWaypoints: true,
           travelMode: google.maps.TravelMode.DRIVING,
-          drivingOptions: {
-            departureTime: new Date(),
-            trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
-          },
+          ...(departureTime && {
+            drivingOptions: {
+              departureTime: departureTime,
+              trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
+            }
+          }),
           region: "SE",
         },
           (result: any, status: any) => {
@@ -165,10 +172,12 @@ export const optimizeRoute = async (
           waypoints: segmentWaypoints,
           optimizeWaypoints: false,
           travelMode: google.maps.TravelMode.DRIVING,
-          drivingOptions: {
-            departureTime: new Date(),
-            trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
-          },
+          ...(departureTime && {
+            drivingOptions: {
+              departureTime: departureTime,
+              trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
+            }
+          }),
           region: "SE",
         },
           (result: any, status: any) => {

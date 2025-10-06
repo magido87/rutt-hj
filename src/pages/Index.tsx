@@ -6,13 +6,20 @@ import { AddressInput } from "@/components/AddressInput";
 import { StartEndInput } from "@/components/StartEndInput";
 import { SavedRoutes } from "@/components/SavedRoutes";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { optimizeRoute, OptimizedRoute } from "@/utils/routeOptimizer";
 import { saveRoute } from "@/utils/routeStorage";
 import { getSettings } from "@/types/settings";
 import { Address } from "@/types/route";
 import { toast } from "sonner";
-import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2 } from "lucide-react";
+import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2, CalendarIcon, Clock } from "lucide-react";
+import { format } from "date-fns";
+import { sv } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -85,6 +92,12 @@ const Index = () => {
   const [apiKey, setApiKey] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
+  
+  // Trafikoptimering
+  const [routeMode, setRouteMode] = useState<"standard" | "traffic">("standard");
+  const [departureDate, setDepartureDate] = useState<Date | undefined>(undefined);
+  const [departureTime, setDepartureTime] = useState("07:00");
+  
   const { isLoaded, error } = useGoogleMaps(apiKey);
 
   useEffect(() => {
@@ -173,7 +186,24 @@ const Index = () => {
 
     try {
       console.log("⚙️ Kör optimering...");
-      const result = await optimizeRoute(allAddresses, apiKey);
+      
+      // Bygg departureTime för API:et
+      let apiDepartureTime: Date | undefined = undefined;
+      if (routeMode === "traffic") {
+        if (departureDate) {
+          const [hours, minutes] = departureTime.split(":").map(Number);
+          apiDepartureTime = new Date(departureDate);
+          apiDepartureTime.setHours(hours, minutes, 0, 0);
+          console.log(`🕐 Trafikoptimerad för: ${format(apiDepartureTime, "PPP 'kl' HH:mm", { locale: sv })}`);
+        } else {
+          apiDepartureTime = new Date(); // Nu
+          console.log("🕐 Trafikoptimerad för: Nu");
+        }
+      } else {
+        console.log("📍 Standard-rutt (ingen trafikdata)");
+      }
+      
+      const result = await optimizeRoute(allAddresses, apiKey, apiDepartureTime);
       console.log("✅ Optimering klar!", result);
       
       // Spara hela det optimerade resultatet
@@ -278,6 +308,74 @@ const Index = () => {
               apiKey={apiKey}
               placeholder="Lämna tomt för att återvända till start"
             />
+          </CardContent>
+        </Card>
+
+        {/* Ruttläge och avresetid */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Ruttläge</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <RadioGroup value={routeMode} onValueChange={(value) => setRouteMode(value as "standard" | "traffic")}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="standard" id="standard" />
+                <Label htmlFor="standard" className="cursor-pointer">
+                  Standard
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="traffic" id="traffic" />
+                <Label htmlFor="traffic" className="cursor-pointer">
+                  Trafikoptimerad
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {routeMode === "traffic" && (
+              <div className="space-y-4 pt-2 border-t">
+                <Label>Avresetid (valfritt - lämna tomt för "nu")</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "justify-start text-left font-normal h-12",
+                          !departureDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {departureDate ? format(departureDate, "PPP", { locale: sv }) : "Välj datum"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-popover z-50" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={departureDate}
+                        onSelect={setDepartureDate}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="time"
+                      value={departureTime}
+                      onChange={(e) => setDepartureTime(e.target.value)}
+                      className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Google använder historisk trafikdata för vald veckodag och tid
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
