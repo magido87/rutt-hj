@@ -231,17 +231,20 @@ const Index = () => {
           const [hours, minutes] = departureTime.split(":").map(Number);
           apiDepartureTime = new Date(departureDate);
           apiDepartureTime.setHours(hours, minutes, 0, 0);
-          console.log(`🕐 Trafikoptimerad för: ${format(apiDepartureTime, "PPP 'kl' HH:mm", { locale: sv })}`);
+          console.log(`🚦 TRAFIKOPTIMERAD FÖR: ${format(apiDepartureTime, "EEEE 'den' do MMMM 'kl' HH:mm", { locale: sv })}`);
+          console.log(`📅 Timestamp: ${apiDepartureTime.getTime()}`);
         } else {
           apiDepartureTime = new Date(); // Nu
-          console.log("🕐 Trafikoptimerad för: Nu");
+          console.log(`🚦 TRAFIKOPTIMERAD FÖR: NU (${format(apiDepartureTime, "EEEE HH:mm", { locale: sv })})`);
         }
       } else {
-        console.log("📍 Standard-rutt (ingen trafikdata)");
+        console.log("📍 STANDARD-RUTT (ingen trafikdata används)");
       }
       
       const result = await optimizeRoute(allAddresses, apiKey, apiDepartureTime);
       console.log("✅ Optimering klar!", result);
+      console.log(`⏱️ TOTAL TID: ${Math.floor(result.totalDuration / 3600)}h ${Math.floor((result.totalDuration % 3600) / 60)}min`);
+      console.log(`📏 TOTAL STRÄCKA: ${(result.totalDistance / 1000).toFixed(1)} km`);
       
       // Spara hela det optimerade resultatet
       saveRoute(result);
