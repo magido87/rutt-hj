@@ -18,7 +18,34 @@ export interface OptimizedRoute {
   totalDuration: number;
   polyline: string;
   apiCalls: number;
+  warnings: string[];
 }
+
+// Hjälpfunktion: Dela upp waypoints i segment (max 23 waypoints per segment för säkerhet)
+const segmentWaypoints = (waypoints: any[], maxPerSegment: number = 23) => {
+  const segments: any[][] = [];
+  for (let i = 0; i < waypoints.length; i += maxPerSegment) {
+    segments.push(waypoints.slice(i, i + maxPerSegment));
+  }
+  return segments;
+};
+
+// Hjälpfunktion: Sy ihop polylines
+const stitchPolylines = (polylines: string[], google: any): string => {
+  if (polylines.length === 0) return "";
+  if (polylines.length === 1) return polylines[0];
+  
+  // Avkoda alla polylines
+  const allPaths = polylines.map(p => 
+    google.maps.geometry.encoding.decodePath(p)
+  );
+  
+  // Kombinera alla punkter
+  const combinedPath = allPaths.flat();
+  
+  // Koda tillbaka
+  return google.maps.geometry.encoding.encodePath(combinedPath);
+};
 
 export const optimizeRoute = async (
   addresses: Address[],
@@ -36,106 +63,241 @@ export const optimizeRoute = async (
   }
 
   const directionsService = new google.maps.DirectionsService();
+  const warnings: string[] = [];
+  let apiCalls = 0;
 
   // Start och slutpunkt
   const origin = addresses[0].value;
   const destination = addresses[addresses.length - 1].value;
-  const waypoints = addresses.slice(1, -1).map((addr: Address) => ({
+  const allWaypoints = addresses.slice(1, -1).map((addr: Address) => ({
     location: addr.value,
     stopover: true,
   }));
 
-  console.log("📍 Rutt:", { origin, destination, waypointsCount: waypoints.length });
+  console.log("📍 Rutt:", { 
+    origin, 
+    destination, 
+    totalWaypoints: allWaypoints.length,
+    totalStops: addresses.length 
+  });
 
-  // Google Maps begränsning: max 25 waypoints
-  if (waypoints.length > 25) {
-    throw new Error("Google Maps stödjer max 27 stopp totalt (25 waypoints). Dela upp din rutt i segment.");
-  }
-
-  let apiCalls = 0;
-
-  try {
-    console.log("🌐 Anropar Directions API...");
+  // Om <= 25 waypoints, kör som vanligt
+  if (allWaypoints.length <= 25) {
+    console.log("✅ Standard rutt (≤25 waypoints)");
     apiCalls++;
     
-    const result = await new Promise<any>((resolve, reject) => {
-      directionsService.route(
-        {
-          origin,
-          destination,
-          waypoints,
-          optimizeWaypoints: true,
-          travelMode: google.maps.TravelMode.DRIVING,
-          region: "SE",
-        },
-        (result: any, status: any) => {
-          console.log("📡 Directions API svar:", status);
-          if (status === "OK") {
-            resolve(result);
-          } else {
-            reject(new Error(`Directions API-fel: ${status}`));
+    try {
+      console.log("🌐 Anropar Directions API...");
+      
+      const result = await new Promise<any>((resolve, reject) => {
+        directionsService.route(
+          {
+            origin,
+            destination,
+            waypoints: allWaypoints,
+            optimizeWaypoints: true,
+            travelMode: google.maps.TravelMode.DRIVING,
+            region: "SE",
+          },
+          (result: any, status: any) => {
+            console.log("📡 Directions API svar:", status);
+            if (status === "OK") {
+              resolve(result);
+            } else if (status === "ZERO_RESULTS") {
+              reject(new Error("Inga rutter hittades mellan dessa adresser"));
+            } else if (status === "OVER_QUERY_LIMIT") {
+              reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
+            } else {
+              reject(new Error(`Directions API-fel: ${status}`));
+            }
           }
-        }
-      );
-    });
-
-    console.log("✅ Directions API success");
-
-    // Bygg resultat med kumulativa värden
-    const segments: RouteSegment[] = [];
-    let cumulativeDistance = 0;
-    let cumulativeDuration = 0;
-
-    // Första segmentet (start)
-    segments.push({
-      order: 1,
-      address: addresses[0].value,
-      distance: 0,
-      duration: 0,
-      cumulativeDistance: 0,
-      cumulativeDuration: 0,
-    });
-
-    // Mellanliggande segment
-    const legs = result.routes[0].legs;
-    const waypointOrder = result.routes[0].waypoint_order || [];
-
-    console.log("🗺️ Bearbetar", legs.length, "legs");
-
-    legs.forEach((leg: any, index: number) => {
-      cumulativeDistance += leg.distance.value;
-      cumulativeDuration += leg.duration.value;
-
-      let addressIndex: number;
-      if (index === legs.length - 1) {
-        // Sista destinationen
-        addressIndex = addresses.length - 1;
-      } else {
-        // Waypoint (justera för optimerad ordning)
-        addressIndex = waypointOrder[index] + 1;
-      }
-
-      segments.push({
-        order: index + 2,
-        address: addresses[addressIndex]?.value || leg.end_address,
-        distance: leg.distance.value,
-        duration: leg.duration.value,
-        cumulativeDistance,
-        cumulativeDuration,
+        );
       });
+
+      return buildRouteResult(result, addresses, apiCalls, warnings);
+    } catch (error: any) {
+      console.error("❌ Route optimization error:", error);
+      throw error;
+    }
+  }
+
+  // SEGMENTERING: Dela upp i flera segment
+  console.log("🔀 Segmenterad rutt (>25 waypoints) - delar upp i segment");
+  const waypointSegments = segmentWaypoints(allWaypoints);
+  console.log(`📦 Skapade ${waypointSegments.length} segment`);
+
+  const allLegs: any[] = [];
+  const allPolylines: string[] = [];
+  let currentOrigin = origin;
+
+  // Kör varje segment
+  for (let i = 0; i < waypointSegments.length; i++) {
+    const segment = waypointSegments[i];
+    const isLastSegment = i === waypointSegments.length - 1;
+    const segmentDestination = isLastSegment ? destination : segment[segment.length - 1].location;
+    const segmentWaypoints = isLastSegment ? segment : segment.slice(0, -1);
+
+    console.log(`🔄 Segment ${i + 1}/${waypointSegments.length}:`, {
+      origin: currentOrigin,
+      waypoints: segmentWaypoints.length,
+      destination: segmentDestination,
     });
 
-    console.log("✅ Rutt optimerad!", { segments: segments.length, apiCalls });
+    apiCalls++;
 
-    return {
-      segments,
-      totalDistance: cumulativeDistance,
-      totalDuration: cumulativeDuration,
-      polyline: result.routes[0].overview_polyline,
-      apiCalls,
-    };
-  } catch (error: any) {
-    console.error("❌ Route optimization error:", error);
-    throw new Error(error.message || "Kunde inte optimera rutten");
+    try {
+      const result = await new Promise<any>((resolve, reject) => {
+        directionsService.route(
+          {
+            origin: currentOrigin,
+            destination: segmentDestination,
+            waypoints: segmentWaypoints,
+            optimizeWaypoints: false, // Optimera inte individuella segment
+            travelMode: google.maps.TravelMode.DRIVING,
+            region: "SE",
+          },
+          (result: any, status: any) => {
+            if (status === "OK") {
+              resolve(result);
+            } else if (status === "ZERO_RESULTS") {
+              reject(new Error(`Segment ${i + 1}: Inga rutter hittades`));
+            } else if (status === "OVER_QUERY_LIMIT") {
+              reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
+            } else {
+              reject(new Error(`Segment ${i + 1}: Directions API-fel: ${status}`));
+            }
+          }
+        );
+      });
+
+      // Samla legs och polyline
+      allLegs.push(...result.routes[0].legs);
+      allPolylines.push(result.routes[0].overview_polyline);
+
+      // Nästa segment börjar där detta slutar
+      currentOrigin = segmentDestination;
+
+      console.log(`✅ Segment ${i + 1} klart`);
+    } catch (error: any) {
+      console.error(`❌ Segment ${i + 1} misslyckades:`, error);
+      throw error;
+    }
   }
+
+  // Sy ihop polylines
+  const combinedPolyline = stitchPolylines(allPolylines, google);
+  console.log("🧵 Polylines ihopsydda");
+
+  // Bygg resultat från alla legs
+  const segments: RouteSegment[] = [];
+  let cumulativeDistance = 0;
+  let cumulativeDuration = 0;
+
+  // Första segmentet (start)
+  segments.push({
+    order: 1,
+    address: addresses[0].value,
+    distance: 0,
+    duration: 0,
+    cumulativeDistance: 0,
+    cumulativeDuration: 0,
+  });
+
+  // Alla legs
+  allLegs.forEach((leg: any, index: number) => {
+    cumulativeDistance += leg.distance.value;
+    cumulativeDuration += leg.duration.value;
+
+    segments.push({
+      order: index + 2,
+      address: addresses[index + 1]?.value || leg.end_address,
+      distance: leg.distance.value,
+      duration: leg.duration.value,
+      cumulativeDistance,
+      cumulativeDuration,
+    });
+  });
+
+  warnings.push(`Rutten delades upp i ${waypointSegments.length} segment`);
+
+  console.log("✅ Segmenterad rutt klar!", { 
+    segments: segments.length, 
+    apiCalls,
+    totalDistance: cumulativeDistance,
+    totalDuration: cumulativeDuration
+  });
+
+  return {
+    segments,
+    totalDistance: cumulativeDistance,
+    totalDuration: cumulativeDuration,
+    polyline: combinedPolyline,
+    apiCalls,
+    warnings,
+  };
+};
+
+// Hjälpfunktion: Bygg resultat från Directions response
+const buildRouteResult = (
+  result: any,
+  addresses: Address[],
+  apiCalls: number,
+  warnings: string[]
+): OptimizedRoute => {
+  const segments: RouteSegment[] = [];
+  let cumulativeDistance = 0;
+  let cumulativeDuration = 0;
+
+  // Första segmentet (start)
+  segments.push({
+    order: 1,
+    address: addresses[0].value,
+    distance: 0,
+    duration: 0,
+    cumulativeDistance: 0,
+    cumulativeDuration: 0,
+  });
+
+  // Mellanliggande segment
+  const legs = result.routes[0].legs;
+  const waypointOrder = result.routes[0].waypoint_order || [];
+
+  console.log("🗺️ Bearbetar", legs.length, "legs");
+
+  legs.forEach((leg: any, index: number) => {
+    cumulativeDistance += leg.distance.value;
+    cumulativeDuration += leg.duration.value;
+
+    let addressIndex: number;
+    if (index === legs.length - 1) {
+      // Sista destinationen
+      addressIndex = addresses.length - 1;
+    } else if (waypointOrder.length > 0) {
+      // Waypoint (justera för optimerad ordning)
+      addressIndex = waypointOrder[index] + 1;
+    } else {
+      // Ingen optimering
+      addressIndex = index + 1;
+    }
+
+    segments.push({
+      order: index + 2,
+      address: addresses[addressIndex]?.value || leg.end_address,
+      distance: leg.distance.value,
+      duration: leg.duration.value,
+      cumulativeDistance,
+      cumulativeDuration,
+    });
+  });
+
+  console.log("✅ Rutt optimerad!", { segments: segments.length, apiCalls });
+
+  return {
+    segments,
+    totalDistance: cumulativeDistance,
+    totalDuration: cumulativeDuration,
+    polyline: result.routes[0].overview_polyline,
+    apiCalls,
+    warnings,
+  };
 };

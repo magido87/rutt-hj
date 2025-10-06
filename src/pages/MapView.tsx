@@ -21,6 +21,7 @@ interface OptimizedRoute {
   totalDuration: number;
   polyline: string;
   apiCalls: number;
+  warnings?: string[];
 }
 
 const formatDistance = (meters: number): string => {
@@ -92,7 +93,7 @@ export default function MapView() {
     );
   }
 
-  const { segments, totalDistance, totalDuration, polyline, apiCalls } = routeData;
+  const { segments, totalDistance, totalDuration, polyline, apiCalls, warnings } = routeData;
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,11 +140,16 @@ export default function MapView() {
                 </span>
               </div>
               {apiCalls && (
-                <div className="text-xs">
+                <div className="text-xs text-muted-foreground">
                   ({apiCalls} API-anrop)
                 </div>
               )}
             </div>
+            {warnings && warnings.length > 0 && (
+              <div className="mt-2 p-2 bg-warning/10 border border-warning/20 rounded text-sm text-warning-foreground">
+                <strong>OBS:</strong> {warnings.join(" • ")}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="map" className="w-full">
