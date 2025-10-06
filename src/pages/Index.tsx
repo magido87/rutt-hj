@@ -23,6 +23,14 @@ import { cn } from "@/lib/utils";
 
 const Index = () => {
   const navigate = useNavigate();
+
+  // Kontrollera inloggning
+  useEffect(() => {
+    const isLoggedIn = localStorage.getItem("isLoggedIn");
+    if (!isLoggedIn) {
+      navigate("/login");
+    }
+  }, [navigate]);
   
   // Ladda inställningar
   const settings = getSettings();
