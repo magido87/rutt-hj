@@ -32,9 +32,34 @@ export const getSavedRoutes = (): SavedRoute[] => {
     if (!saved) return [];
     
     const routes = JSON.parse(saved);
-    return Array.isArray(routes) ? routes : [];
+    if (!Array.isArray(routes)) return [];
+    
+    // Migrera gamla rutter med Address-objekt till nya formatet
+    const migratedRoutes = routes.map((route: any) => {
+      // Om det redan är nytt format, returnera som det är
+      if (typeof route.startAddress === 'string') {
+        return route;
+      }
+      
+      // Migrera gammalt format
+      return {
+        ...route,
+        startAddress: route.startAddress?.value || route.startAddress || "Okänd",
+        endAddress: route.endAddress?.value || route.endAddress || "Okänd",
+      };
+    });
+    
+    // Spara migrerade rutter
+    if (migratedRoutes.some((r: any, i: number) => r !== routes[i])) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedRoutes));
+      console.log("✅ Migrerade gamla rutter till nytt format");
+    }
+    
+    return migratedRoutes;
   } catch (error) {
     console.error("Failed to load saved routes:", error);
+    // Vid fel, rensa localStorage för att undvika fortsatta problem
+    localStorage.removeItem(STORAGE_KEY);
     return [];
   }
 };
