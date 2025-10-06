@@ -189,7 +189,7 @@ export default function MapView() {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
-        {/* Trafikvarningar */}
+        {/* Trafikvarningar - floating widget */}
         <TrafficTicker />
         
         <Card className="border-2">
