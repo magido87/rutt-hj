@@ -23,13 +23,59 @@ export interface OptimizedRoute {
   warnings?: string[];
 }
 
+// Routes API 2.0 interfaces
+interface RoutesAPILocation {
+  latLng?: {
+    latitude: number;
+    longitude: number;
+  };
+  address?: string;
+}
+
+interface RoutesAPIWaypoint {
+  location: RoutesAPILocation;
+  via?: boolean;
+}
+
+interface RoutesAPIRequest {
+  origin: RoutesAPIWaypoint;
+  destination: RoutesAPIWaypoint;
+  intermediates?: RoutesAPIWaypoint[];
+  travelMode: string;
+  routingPreference?: string;
+  departureTime?: string;
+  computeAlternativeRoutes: boolean;
+  routeModifiers?: {
+    avoidTolls?: boolean;
+    avoidHighways?: boolean;
+    avoidFerries?: boolean;
+  };
+  languageCode: string;
+  units: string;
+  optimizeWaypointOrder?: boolean;
+}
+
 // Hjälpfunktion: Dela upp waypoints i segment (max 23 waypoints per segment för säkerhet)
-const segmentWaypoints = (waypoints: any[], maxPerSegment: number = 23) => {
-  const segments: any[][] = [];
+const segmentWaypoints = (waypoints: RoutesAPIWaypoint[], maxPerSegment: number = 23) => {
+  const segments: RoutesAPIWaypoint[][] = [];
   for (let i = 0; i < waypoints.length; i += maxPerSegment) {
     segments.push(waypoints.slice(i, i + maxPerSegment));
   }
   return segments;
+};
+
+// Hjälpfunktion: Geocoda adress till lat/lng om placeId saknas
+const geocodeAddress = async (address: string, apiKey: string): Promise<{ latitude: number; longitude: number }> => {
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  
+  if (data.status !== "OK" || !data.results[0]) {
+    throw new Error(`Kunde inte hitta adress: ${address}`);
+  }
+  
+  const location = data.results[0].geometry.location;
+  return { latitude: location.lat, longitude: location.lng };
 };
 
 // Hjälpfunktion: Sy ihop polylines
@@ -54,18 +100,17 @@ export const optimizeRoute = async (
   apiKey: string,
   departureTime?: Date
 ): Promise<OptimizedRoute> => {
-  console.log("🔧 optimizeRoute() START", { addressCount: addresses.length });
+  console.log("🔧 optimizeRoute() START - Routes API 2.0", { addressCount: addresses.length });
   
   if (addresses.length < 2) {
     throw new Error("Behöver minst 2 adresser");
   }
 
   const google = (window as any).google;
-  if (!google) {
-    throw new Error("Google Maps är inte laddat");
+  if (!google || !google.maps || !google.maps.geometry) {
+    throw new Error("Google Maps geometry library är inte laddat");
   }
 
-  const directionsService = new google.maps.DirectionsService();
   const warnings: string[] = [];
   let apiCalls = 0;
 
@@ -74,121 +119,134 @@ export const optimizeRoute = async (
   const trafficModel = settings.trafficModel || "best_guess";
   
   // Logga trafikläge
+  let routingPreference = "TRAFFIC_AWARE_OPTIMAL";
   if (departureTime) {
-    // VIKTIGT: Google kräver att departureTime är i framtiden
     const now = new Date();
     if (departureTime <= now) {
       console.warn("⚠️ departureTime är i det förflutna, justerar till 5min i framtiden");
       departureTime = new Date(now.getTime() + 5 * 60 * 1000);
     }
-    console.log("🚦 TRAFIKLÄGE AKTIVERAT");
+    console.log("🚦 TRAFIKLÄGE AKTIVERAT (Routes API 2.0)");
     console.log("📅 Avresetid:", departureTime.toISOString());
-    console.log("🎯 Trafikmodell:", trafficModel);
+    console.log("🎯 Routing preference:", routingPreference);
   } else {
     console.log("📍 STANDARD-LÄGE (ingen trafikdata)");
+    routingPreference = "TRAFFIC_UNAWARE";
   }
 
-  // Start och slutpunkt
-  const origin = addresses[0].value;
-  const destination = addresses[addresses.length - 1].value;
-  const allWaypoints = addresses.slice(1, -1).map((addr: Address) => ({
-    location: addr.value,
-    stopover: true,
+  // Konvertera adresser till Routes API 2.0 waypoints
+  const origin: RoutesAPIWaypoint = {
+    location: { address: addresses[0].value }
+  };
+  const destination: RoutesAPIWaypoint = {
+    location: { address: addresses[addresses.length - 1].value }
+  };
+  const intermediates: RoutesAPIWaypoint[] = addresses.slice(1, -1).map((addr: Address) => ({
+    location: { address: addr.value }
   }));
 
   console.log("📍 Rutt:", { 
-    origin, 
-    destination, 
-    totalWaypoints: allWaypoints.length,
+    origin: addresses[0].value, 
+    destination: addresses[addresses.length - 1].value, 
+    totalIntermediates: intermediates.length,
     totalStops: addresses.length 
   });
 
-  // Om <= 25 waypoints, kör som vanligt
-  if (allWaypoints.length <= 25) {
-    console.log("✅ Standard rutt (≤25 waypoints)");
+  // Om <= 25 intermediates, kör som vanligt
+  if (intermediates.length <= 25) {
+    console.log("✅ Standard rutt (≤25 intermediates)");
     apiCalls++;
     
     try {
-      console.log("🌐 Anropar Directions API...");
+      console.log("🌐 Anropar Routes API 2.0...");
       
-      // Bygg request object
-      const requestOptions: any = {
+      // Bygg request object för Routes API 2.0
+      const requestBody: RoutesAPIRequest = {
         origin,
         destination,
-        waypoints: allWaypoints,
-        optimizeWaypoints: true,
-        travelMode: google.maps.TravelMode.DRIVING,
-        region: "SE",
+        intermediates: intermediates.length > 0 ? intermediates : undefined,
+        travelMode: "DRIVE",
+        routingPreference,
+        computeAlternativeRoutes: false,
+        languageCode: "sv",
+        units: "METRIC",
+        optimizeWaypointOrder: true,
       };
 
-      // Lägg till trafikdata om departureTime finns
+      // Lägg till departureTime om det finns
       if (departureTime) {
-        requestOptions.drivingOptions = {
-          departureTime: departureTime,
-          trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
-        };
-        console.log("🚦 drivingOptions tillagt:", requestOptions.drivingOptions);
+        requestBody.departureTime = departureTime.toISOString();
+        console.log("🚦 departureTime tillagt:", requestBody.departureTime);
       }
       
-      const result = await new Promise<any>((resolve, reject) => {
-        directionsService.route(requestOptions, (result: any, status: any) => {
-          console.log("📡 Directions API svar:", status);
-          if (status === "OK") {
-            // Detaljerad loggning av trafikdata
-            console.log("=== TRAFIKDATA ANALYS ===");
-            console.log("Antal legs:", result.routes[0].legs.length);
-            
-            let totalNormal = 0;
-            let totalTraffic = 0;
-            let hasTrafficData = false;
-            
-            result.routes[0].legs.forEach((leg: any, i: number) => {
-              const normalDuration = leg.duration.value;
-              const trafficDuration = leg.duration_in_traffic?.value;
-              const distance = leg.distance.value;
-              
-              totalNormal += normalDuration;
-              
-              console.log(`Leg ${i+1}:`);
-              console.log(`  📍 ${leg.start_address.substring(0, 40)}... → ${leg.end_address.substring(0, 40)}...`);
-              console.log(`  📏 Avstånd: ${(distance/1000).toFixed(1)} km`);
-              console.log(`  ⏱️ Standard tid: ${Math.round(normalDuration/60)} min`);
-              
-              if (trafficDuration) {
-                hasTrafficData = true;
-                totalTraffic += trafficDuration;
-                const diff = trafficDuration - normalDuration;
-                const diffMin = Math.round(diff / 60);
-                console.log(`  🚦 Med trafik: ${Math.round(trafficDuration/60)} min (${diffMin > 0 ? '+' : ''}${diffMin} min)`);
-              } else {
-                console.log(`  ⚠️ Ingen trafikdata`);
-                totalTraffic += normalDuration;
-              }
-            });
-            
-            console.log("=== TOTALT ===");
-            console.log(`Standard tid: ${Math.round(totalNormal/60)} min (${(totalNormal/3600).toFixed(1)} h)`);
-            if (hasTrafficData) {
-              console.log(`Med trafik: ${Math.round(totalTraffic/60)} min (${(totalTraffic/3600).toFixed(1)} h)`);
-              const totalDiff = totalTraffic - totalNormal;
-              console.log(`Skillnad: ${Math.round(totalDiff/60)} min (${totalDiff > 0 ? 'längre' : 'kortare'} med trafik)`);
-            } else {
-              console.log("⚠️ INGEN TRAFIKDATA I NÅGOT LEG - Kontrollera API-inställningar");
-            }
-            console.log("====================");
-            
-            resolve(result);
-          } else if (status === "ZERO_RESULTS") {
-            reject(new Error("Inga rutter hittades mellan dessa adresser"));
-          } else if (status === "OVER_QUERY_LIMIT") {
-            reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
-          } else {
-            reject(new Error(`Directions API-fel: ${status}`));
-          }
-        });
+      const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.distanceMeters,routes.legs.duration,routes.legs.staticDuration,routes.legs.startLocation,routes.legs.endLocation,routes.optimizedIntermediateWaypointIndex"
+        },
+        body: JSON.stringify(requestBody),
       });
 
-      return buildRouteResult(result, addresses, apiCalls, warnings);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Routes API error:", response.status, errorText);
+        throw new Error(`Routes API fel: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log("📡 Routes API 2.0 svar:", result);
+
+      if (!result.routes || result.routes.length === 0) {
+        throw new Error("Inga rutter hittades mellan dessa adresser");
+      }
+
+      const route = result.routes[0];
+      
+      // Detaljerad loggning av trafikdata
+      console.log("=== TRAFIKDATA ANALYS (Routes API 2.0) ===");
+      console.log("Antal legs:", route.legs?.length || 0);
+      
+      let totalStatic = 0;
+      let totalTraffic = 0;
+      let hasTrafficData = false;
+      
+      if (route.legs) {
+        route.legs.forEach((leg: any, i: number) => {
+          const staticDuration = parseInt(leg.staticDuration?.replace('s', '') || '0');
+          const trafficDuration = parseInt(leg.duration?.replace('s', '') || '0');
+          const distance = leg.distanceMeters;
+          
+          totalStatic += staticDuration;
+          totalTraffic += trafficDuration;
+          
+          console.log(`Leg ${i+1}:`);
+          console.log(`  📏 Avstånd: ${(distance/1000).toFixed(1)} km`);
+          console.log(`  ⏱️ Static duration: ${Math.round(staticDuration/60)} min`);
+          console.log(`  🚦 Traffic duration: ${Math.round(trafficDuration/60)} min`);
+          
+          if (trafficDuration !== staticDuration) {
+            hasTrafficData = true;
+            const diff = trafficDuration - staticDuration;
+            const diffMin = Math.round(diff / 60);
+            console.log(`  📊 Skillnad: ${diffMin > 0 ? '+' : ''}${diffMin} min`);
+          }
+        });
+      }
+      
+      console.log("=== TOTALT ===");
+      console.log(`Static duration: ${Math.round(totalStatic/60)} min (${(totalStatic/3600).toFixed(1)} h)`);
+      console.log(`Traffic duration: ${Math.round(totalTraffic/60)} min (${(totalTraffic/3600).toFixed(1)} h)`);
+      if (hasTrafficData) {
+        const totalDiff = totalTraffic - totalStatic;
+        console.log(`Skillnad: ${Math.round(totalDiff/60)} min (${totalDiff > 0 ? 'längre' : 'kortare'} med trafik)`);
+      } else {
+        console.log("⚠️ Samma tid - ingen trafikpåverkan eller trafikdata saknas");
+      }
+      console.log("====================");
+
+      return buildRouteResultFromRoutesAPI(route, addresses, apiCalls, warnings, google);
     } catch (error: any) {
       console.error("❌ Route optimization error:", error);
       throw error;
@@ -196,65 +254,84 @@ export const optimizeRoute = async (
   }
 
   // SEGMENTERING: Dela upp i flera segment
-  console.log("🔀 Segmenterad rutt (>25 waypoints) - delar upp i segment");
-  const waypointSegments = segmentWaypoints(allWaypoints);
-  console.log(`📦 Skapade ${waypointSegments.length} segment`);
+  console.log("🔀 Segmenterad rutt (>25 intermediates) - delar upp i segment");
+  const intermediateSegments = segmentWaypoints(intermediates);
+  console.log(`📦 Skapade ${intermediateSegments.length} segment`);
 
   const allLegs: any[] = [];
   const allPolylines: string[] = [];
   let currentOrigin = origin;
 
   // Kör varje segment
-  for (let i = 0; i < waypointSegments.length; i++) {
-    const segment = waypointSegments[i];
-    const isLastSegment = i === waypointSegments.length - 1;
-    const segmentDestination = isLastSegment ? destination : segment[segment.length - 1].location;
-    const segmentWaypoints = isLastSegment ? segment : segment.slice(0, -1);
+  for (let i = 0; i < intermediateSegments.length; i++) {
+    const segment = intermediateSegments[i];
+    const isLastSegment = i === intermediateSegments.length - 1;
+    
+    let segmentDestination: RoutesAPIWaypoint;
+    let segmentIntermediates: RoutesAPIWaypoint[];
+    
+    if (isLastSegment) {
+      segmentDestination = destination;
+      segmentIntermediates = segment;
+    } else {
+      segmentDestination = segment[segment.length - 1];
+      segmentIntermediates = segment.slice(0, -1);
+    }
 
-    console.log(`🔄 Segment ${i + 1}/${waypointSegments.length}:`, {
-      origin: currentOrigin,
-      waypoints: segmentWaypoints.length,
-      destination: segmentDestination,
+    console.log(`🔄 Segment ${i + 1}/${intermediateSegments.length}:`, {
+      intermediates: segmentIntermediates.length,
     });
 
     apiCalls++;
 
     try {
-      // Bygg request object
-      const requestOptions: any = {
+      // Bygg request object för Routes API 2.0
+      const requestBody: RoutesAPIRequest = {
         origin: currentOrigin,
         destination: segmentDestination,
-        waypoints: segmentWaypoints,
-        optimizeWaypoints: false,
-        travelMode: google.maps.TravelMode.DRIVING,
-        region: "SE",
+        intermediates: segmentIntermediates.length > 0 ? segmentIntermediates : undefined,
+        travelMode: "DRIVE",
+        routingPreference,
+        computeAlternativeRoutes: false,
+        languageCode: "sv",
+        units: "METRIC",
+        optimizeWaypointOrder: false,
       };
 
-      // Lägg till trafikdata om departureTime finns
       if (departureTime) {
-        requestOptions.drivingOptions = {
-          departureTime: departureTime,
-          trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
-        };
+        requestBody.departureTime = departureTime.toISOString();
       }
 
-      const result = await new Promise<any>((resolve, reject) => {
-        directionsService.route(requestOptions, (result: any, status: any) => {
-          if (status === "OK") {
-            resolve(result);
-          } else if (status === "ZERO_RESULTS") {
-            reject(new Error(`Segment ${i + 1}: Inga rutter hittades`));
-          } else if (status === "OVER_QUERY_LIMIT") {
-            reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
-          } else {
-            reject(new Error(`Segment ${i + 1}: Directions API-fel: ${status}`));
-          }
-        });
+      const response = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.distanceMeters,routes.legs.duration,routes.legs.staticDuration"
+        },
+        body: JSON.stringify(requestBody),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Segment ${i + 1}: Routes API fel: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.routes || result.routes.length === 0) {
+        throw new Error(`Segment ${i + 1}: Inga rutter hittades`);
+      }
+
+      const route = result.routes[0];
+      
       // Samla legs och polyline
-      allLegs.push(...result.routes[0].legs);
-      allPolylines.push(result.routes[0].overview_polyline);
+      if (route.legs) {
+        allLegs.push(...route.legs);
+      }
+      if (route.polyline?.encodedPolyline) {
+        allPolylines.push(route.polyline.encodedPolyline);
+      }
 
       // Nästa segment börjar där detta slutar
       currentOrigin = segmentDestination;
@@ -285,18 +362,19 @@ export const optimizeRoute = async (
     cumulativeDuration: 0,
   });
 
-  // Alla legs
+  // Alla legs (från Routes API 2.0)
   allLegs.forEach((leg: any, index: number) => {
-    const distance = leg.distance.value;
-    // Använd duration_in_traffic om tillgänglig (trafikdata), annars vanlig duration
-    const duration = leg.duration_in_traffic?.value || leg.duration.value;
+    const distance = leg.distanceMeters || 0;
+    // Använd traffic duration om tillgänglig, annars static duration
+    const durationStr = leg.duration || leg.staticDuration || "0s";
+    const duration = parseInt(durationStr.replace('s', ''));
     
     cumulativeDistance += distance;
     cumulativeDuration += duration;
 
     segments.push({
       order: index + 2,
-      address: addresses[index + 1]?.value || leg.end_address,
+      address: addresses[index + 1]?.value || "Unknown",
       distance: distance,
       duration: duration,
       cumulativeDistance,
@@ -304,7 +382,7 @@ export const optimizeRoute = async (
     });
   });
 
-  warnings.push(`Rutten delades upp i ${waypointSegments.length} segment`);
+  warnings.push(`Rutten delades upp i ${intermediateSegments.length} segment`);
 
   console.log("✅ Segmenterad rutt klar!", { 
     segments: segments.length, 
@@ -323,12 +401,13 @@ export const optimizeRoute = async (
   };
 };
 
-// Hjälpfunktion: Bygg resultat från Directions response
-const buildRouteResult = (
-  result: any,
+// Hjälpfunktion: Bygg resultat från Routes API 2.0 response
+const buildRouteResultFromRoutesAPI = (
+  route: any,
   addresses: Address[],
   apiCalls: number,
-  warnings: string[]
+  warnings: string[],
+  google: any
 ): OptimizedRoute => {
   const segments: RouteSegment[] = [];
   let cumulativeDistance = 0;
@@ -345,19 +424,23 @@ const buildRouteResult = (
   });
 
   // Mellanliggande segment
-  const legs = result.routes[0].legs;
-  const waypointOrder = result.routes[0].waypoint_order || [];
+  const legs = route.legs || [];
+  const optimizedOrder = route.optimizedIntermediateWaypointIndex || [];
 
-  console.log("🗺️ Bearbetar", legs.length, "legs");
+  console.log("🗺️ Bearbetar", legs.length, "legs från Routes API 2.0");
 
   legs.forEach((leg: any, index: number) => {
-    const distance = leg.distance.value;
-    // Använd duration_in_traffic om tillgänglig (trafikdata), annars vanlig duration
-    const duration = leg.duration_in_traffic?.value || leg.duration.value;
+    const distance = leg.distanceMeters || 0;
+    // Använd traffic duration om tillgänglig, annars static duration
+    const durationStr = leg.duration || leg.staticDuration || "0s";
+    const duration = parseInt(durationStr.replace('s', ''));
+    
+    const staticDurationStr = leg.staticDuration || "0s";
+    const staticDuration = parseInt(staticDurationStr.replace('s', ''));
     
     // Logga för debugging
-    if (leg.duration_in_traffic) {
-      console.log(`🚦 Leg ${index + 1}: Trafik ${Math.round(duration/60)}min vs Standard ${Math.round(leg.duration.value/60)}min`);
+    if (duration !== staticDuration) {
+      console.log(`🚦 Leg ${index + 1}: Trafik ${Math.round(duration/60)}min vs Static ${Math.round(staticDuration/60)}min`);
     }
     
     cumulativeDistance += distance;
@@ -367,9 +450,9 @@ const buildRouteResult = (
     if (index === legs.length - 1) {
       // Sista destinationen
       addressIndex = addresses.length - 1;
-    } else if (waypointOrder.length > 0) {
+    } else if (optimizedOrder.length > 0) {
       // Waypoint (justera för optimerad ordning)
-      addressIndex = waypointOrder[index] + 1;
+      addressIndex = optimizedOrder[index] + 1;
     } else {
       // Ingen optimering
       addressIndex = index + 1;
@@ -377,7 +460,7 @@ const buildRouteResult = (
 
     segments.push({
       order: index + 2,
-      address: addresses[addressIndex]?.value || leg.end_address,
+      address: addresses[addressIndex]?.value || "Unknown",
       distance: distance,
       duration: duration,
       cumulativeDistance,
@@ -385,13 +468,13 @@ const buildRouteResult = (
     });
   });
 
-  console.log("✅ Rutt optimerad!", { segments: segments.length, apiCalls });
+  console.log("✅ Rutt optimerad (Routes API 2.0)!", { segments: segments.length, apiCalls });
 
   return {
     segments,
     totalDistance: cumulativeDistance,
     totalDuration: cumulativeDuration,
-    polyline: result.routes[0].overview_polyline,
+    polyline: route.polyline?.encodedPolyline || "",
     apiCalls,
     warnings,
   };
