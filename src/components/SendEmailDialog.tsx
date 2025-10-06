@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Mail, Loader2 } from "lucide-react";
 import { OptimizedRoute } from "@/utils/routeOptimizer";
 import { getPDFBlob } from "@/utils/exportRoute";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SendEmailDialogProps {
   open: boolean;
@@ -57,29 +58,20 @@ export function SendEmailDialog({ open, onOpenChange, routeData }: SendEmailDial
       console.log("Sending email to:", email);
 
       // Call edge function
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-route-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      const { data, error } = await supabase.functions.invoke('send-route-email', {
+        body: {
+          to: email,
+          pdfData: pdfBase64,
+          routeInfo: {
+            stops: routeData.segments.length,
+            distance: `${(routeData.totalDistance / 1000).toFixed(1)} km`,
+            duration: `${Math.floor(routeData.totalDuration / 3600)}h ${Math.floor((routeData.totalDuration % 3600) / 60)}min`,
           },
-          body: JSON.stringify({
-            to: email,
-            pdfData: pdfBase64,
-            routeInfo: {
-              stops: routeData.segments.length,
-              distance: `${(routeData.totalDistance / 1000).toFixed(1)} km`,
-              duration: `${Math.floor(routeData.totalDuration / 3600)}h ${Math.floor((routeData.totalDuration % 3600) / 60)}min`,
-            },
-          }),
-        }
-      );
+        },
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Kunde inte skicka e-post");
+      if (error) {
+        throw new Error(error.message || "Kunde inte skicka e-post");
       }
 
       toast.success(`E-post skickad till ${email}!`);
