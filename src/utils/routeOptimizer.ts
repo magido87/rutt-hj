@@ -120,7 +120,7 @@ export const optimizeRoute = async (
   const trafficModel = settings.trafficModel || "best_guess";
   
   // Logga trafikläge
-  let routingPreference = "TRAFFIC_AWARE_OPTIMAL";
+  let routingPreference = "TRAFFIC_AWARE";
   if (departureTime) {
     const now = new Date();
     if (departureTime <= now) {
@@ -171,8 +171,8 @@ export const optimizeRoute = async (
         computeAlternativeRoutes: false,
         languageCode: "sv",
         units: "METRIC",
-        // Waypoint-optimering stöds inte med trafikläge
-        optimizeWaypointOrder: routingPreference === "TRAFFIC_UNAWARE",
+        // Aktivera waypoint-optimering alltid för bästa resultat
+        optimizeWaypointOrder: true,
       };
 
       // Lägg till departureTime om det finns
