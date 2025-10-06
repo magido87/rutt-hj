@@ -23,41 +23,97 @@ export const AddressInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<any>(null);
   const [localValue, setLocalValue] = useState(value);
+  const preventClearRef = useRef(false);
+
+  // Synka localValue när parent value ändras
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   useEffect(() => {
     if (!inputRef.current || !apiKey || !(window as any).google) return;
 
     try {
       const google = (window as any).google;
-      autocompleteRef.current = new google.maps.places.Autocomplete(
-        inputRef.current,
-        {
-          componentRestrictions: { country: "se" },
-          fields: ["formatted_address", "place_id", "geometry"],
-        }
-      );
+      const input = inputRef.current;
+      
+      autocompleteRef.current = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: "se" },
+        fields: ["formatted_address", "place_id", "geometry"],
+      });
 
-      autocompleteRef.current.addListener("place_changed", () => {
+      // Lyssna på place_changed (när användaren väljer från dropdown)
+      const placeChangedListener = autocompleteRef.current.addListener("place_changed", () => {
         const place = autocompleteRef.current?.getPlace();
         if (place && place.formatted_address) {
-          setLocalValue(place.formatted_address);
-          onChange(index, place.formatted_address, place.place_id);
+          preventClearRef.current = true;
+          const newAddress = place.formatted_address;
+          setLocalValue(newAddress);
+          onChange(index, newAddress, place.place_id);
+          
+          // Återställ flag efter en kort delay
+          setTimeout(() => {
+            preventClearRef.current = false;
+          }, 100);
         }
       });
+
+      // Förhindra att Google Autocomplete rensar fältet vid blur
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          // Välj första förslaget vid Enter
+          google.maps.event.trigger(input, 'keydown', {
+            keyCode: 40, // Down arrow
+            stopPropagation: () => {},
+            preventDefault: () => {}
+          });
+          setTimeout(() => {
+            google.maps.event.trigger(input, 'keydown', {
+              keyCode: 13, // Enter
+              stopPropagation: () => {},
+              preventDefault: () => {}
+            });
+          }, 50);
+        }
+      };
+
+      input.addEventListener("keydown", handleKeyDown);
+
+      // Hantera blur - förhindra clearing om användaren valt något
+      const handleBlur = () => {
+        // Ge autocomplete tid att trigga place_changed först
+        setTimeout(() => {
+          if (!preventClearRef.current && input.value) {
+            // Användaren har skrivit något men inte valt från dropdown
+            // Behåll värdet ändå
+            setLocalValue(input.value);
+            onChange(index, input.value);
+          }
+        }, 200);
+      };
+
+      input.addEventListener("blur", handleBlur);
+
+      return () => {
+        if (placeChangedListener) {
+          google.maps.event.removeListener(placeChangedListener);
+        }
+        if (autocompleteRef.current) {
+          google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        }
+        input.removeEventListener("keydown", handleKeyDown);
+        input.removeEventListener("blur", handleBlur);
+      };
     } catch (error) {
       console.error("Error initializing autocomplete:", error);
     }
-
-    return () => {
-      if (autocompleteRef.current && (window as any).google) {
-        (window as any).google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
-    };
   }, [apiKey, index, onChange]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setLocalValue(newValue);
+    // Vänta lite innan vi uppdaterar parent (undvik spam)
     onChange(index, newValue);
   };
 
