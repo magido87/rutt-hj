@@ -110,6 +110,12 @@ const Index = () => {
   const handleAddressChange = (index: number, value: string, placeId?: string) => {
     const newAddresses = [...addresses];
     newAddresses[index] = { value, placeId };
+    
+    // Om det sista fältet fylls i, lägg till ett nytt tomt fält
+    if (index === addresses.length - 1 && value.trim() !== "") {
+      newAddresses.push({ value: "", placeId: undefined });
+    }
+    
     setAddresses(newAddresses);
   };
 
@@ -117,6 +123,11 @@ const Index = () => {
     const newAddresses = addresses.filter((_, i) => i !== index);
     setAddresses(newAddresses);
     toast.success("Adress borttagen");
+  };
+
+  const handleClearAll = () => {
+    setAddresses([{ value: "", placeId: undefined }]);
+    toast.success("Listan rensad");
   };
 
   const handleAddMore = () => {
@@ -396,12 +407,19 @@ const Index = () => {
                 value={address.value}
                 onChange={handleAddressChange}
                 onRemove={handleRemoveAddress}
-                showRemove={addresses.length > 10}
+                showRemove={true}
                 apiKey={apiKey}
               />
             ))}
 
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
+              <Button
+                onClick={handleClearAll}
+                variant="outline"
+                className="h-12 flex-1"
+              >
+                Rensa lista
+              </Button>
               <Button
                 onClick={handleAddMore}
                 variant="outline"
