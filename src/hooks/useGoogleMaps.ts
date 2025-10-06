@@ -34,15 +34,7 @@ export const useGoogleMaps = (apiKey: string) => {
 
     document.head.appendChild(script);
 
-    return () => {
-      // Cleanup if needed
-      const existingScript = document.querySelector(
-        `script[src^="https://maps.googleapis.com/maps/api/js"]`
-      );
-      if (existingScript) {
-        existingScript.remove();
-      }
-    };
+    // Don't cleanup - keep script loaded for navigation between pages
   }, [apiKey]);
 
   return { isLoaded, error };

@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ExportMenu } from "@/components/ExportMenu";
 import { SendEmailDialog } from "@/components/SendEmailDialog";
 import { ShareRouteDialog } from "@/components/ShareRouteDialog";
+import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { ArrowLeft, MapPin, Clock, Route, AlertCircle, Mail, Share2 } from "lucide-react";
 
 interface RouteSegment {
@@ -60,6 +61,8 @@ export default function MapView() {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [routeId, setRouteId] = useState<string>("");
+
+  const { isLoaded } = useGoogleMaps(apiKey);
 
   useEffect(() => {
     // Hämta API-nyckel
