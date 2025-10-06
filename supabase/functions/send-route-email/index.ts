@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
+import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
@@ -32,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
     const pdfBuffer = Uint8Array.from(atob(pdfData), c => c.charCodeAt(0));
 
     const emailResponse = await resend.emails.send({
-      from: "Ruttoptimering <onboarding@resend.dev>",
+      from: "Ruttoptimering <noreply@magido.se>",
       to: [to],
       subject: `Din optimerade rutt - ${routeInfo.stops} stopp`,
       html: `
