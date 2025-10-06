@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddressInput } from "@/components/AddressInput";
+import { StartEndInput } from "@/components/StartEndInput";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { optimizeRoute, OptimizedRoute } from "@/utils/routeOptimizer";
 import { toast } from "sonner";
@@ -15,8 +16,19 @@ interface Address {
 
 const Index = () => {
   const navigate = useNavigate();
+  
+  // Start och slutadress
+  const [startAddress, setStartAddress] = useState<Address>({
+    value: "Fraktvägen, Mölnlycke",
+    placeId: undefined,
+  });
+  const [endAddress, setEndAddress] = useState<Address>({
+    value: "Fraktvägen, Mölnlycke",
+    placeId: undefined,
+  });
+  
+  // Mellanliggande stopp
   const [addresses, setAddresses] = useState<Address[]>([
-    { value: "Fraktvägen, Mölnlycke", placeId: undefined },
     { value: "Dalhemsvägen 2, Torslanda", placeId: undefined },
     { value: "Lingonvägen 35, Floda", placeId: undefined },
     { value: "Importgatan 15, Hisings Backa", placeId: undefined },
@@ -66,7 +78,6 @@ const Index = () => {
     { value: "Askims Kyrkväg 44, Askim", placeId: undefined },
     { value: "Torslandavägen 36, Torslanda", placeId: undefined },
     { value: "Björlandavägen 210, Göteborg", placeId: undefined },
-    { value: "Fraktvägen, Mölnlycke", placeId: undefined },
   ]);
   const [apiKey, setApiKey] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -111,24 +122,43 @@ const Index = () => {
       return;
     }
 
-    // Validering 2: Minst 2 adresser
-    const filledAddresses = addresses.filter((addr) => addr.value.trim() !== "");
-    console.log(`📍 ${filledAddresses.length} adresser ifyllda`, filledAddresses);
-    
-    if (filledAddresses.length < 2) {
-      console.error("❌ För få adresser");
-      toast.error("Du behöver minst 2 adresser för att optimera en rutt");
+    // Validering 2: Start och slut måste finnas
+    if (!startAddress.value.trim()) {
+      console.error("❌ Startadress saknas");
+      toast.error("Du måste ange en startadress");
       return;
     }
 
-    // Validering 3: Max 50 stopp (vi hanterar upp till 50)
-    if (filledAddresses.length > 50) {
+    // Validering 3: Minst 1 adress (start räknas)
+    const filledAddresses = addresses.filter((addr) => addr.value.trim() !== "");
+    console.log(`📍 Start: ${startAddress.value}`);
+    console.log(`📍 ${filledAddresses.length} mellanliggande stopp`);
+    console.log(`📍 Slut: ${endAddress.value || startAddress.value}`);
+
+    // Bygg komplett adresslista: start + mellanliggande + slut
+    const finalEndAddress = endAddress.value.trim() || startAddress.value;
+    const allAddresses = [
+      startAddress,
+      ...filledAddresses,
+      { value: finalEndAddress, placeId: endAddress.placeId }
+    ];
+
+    console.log(`📦 Total: ${allAddresses.length} stopp`);
+    
+    if (allAddresses.length < 2) {
+      console.error("❌ För få adresser");
+      toast.error("Du behöver minst en startadress och en slutadress (eller mellanliggande stopp)");
+      return;
+    }
+
+    // Validering 4: Max 50 stopp
+    if (allAddresses.length > 50) {
       console.error("❌ För många adresser");
       toast.error("Max 50 stopp stöds. Ta bort några adresser.");
       return;
     }
 
-    // Validering 4: Google Maps måste vara laddat
+    // Validering 5: Google Maps måste vara laddat
     if (!isLoaded || !(window as any).google) {
       console.error("❌ Google Maps inte laddat");
       toast.error("Google Maps laddas fortfarande. Vänta ett ögonblick.");
@@ -140,7 +170,7 @@ const Index = () => {
 
     try {
       console.log("⚙️ Kör optimering...");
-      const result = await optimizeRoute(filledAddresses, apiKey);
+      const result = await optimizeRoute(allAddresses, apiKey);
       console.log("✅ Optimering klar!", result);
       
       setOptimizedRoute(result);
@@ -160,6 +190,7 @@ const Index = () => {
   };
 
   const filledCount = addresses.filter((addr) => addr.value.trim() !== "").length;
+  const totalStops = 1 + filledCount + (endAddress.value.trim() ? 1 : 0); // start + mellanliggande + slut
 
   return (
     <div className="min-h-screen bg-background">
@@ -216,8 +247,35 @@ const Index = () => {
         {/* Address Input Section */}
         <Card>
           <CardHeader>
+            <CardTitle>Start och slutadress</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <StartEndInput
+              value={startAddress.value}
+              onChange={(value, placeId) => setStartAddress({ value, placeId })}
+              label="Startadress"
+              type="start"
+              apiKey={apiKey}
+              placeholder="Var börjar rutten?"
+            />
+            <StartEndInput
+              value={endAddress.value}
+              onChange={(value, placeId) => setEndAddress({ value, placeId })}
+              label="Slutadress (valfritt)"
+              type="end"
+              apiKey={apiKey}
+              placeholder="Lämna tomt för att återvända till start"
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle className="flex items-center justify-between">
-              <span>Adresser ({filledCount} ifyllda)</span>
+              <span>Mellanliggande stopp ({filledCount} ifyllda)</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                Totalt {totalStops} stopp
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -244,7 +302,7 @@ const Index = () => {
               </Button>
               <Button
                 onClick={handleOptimize}
-                disabled={!apiKey || !isLoaded || filledCount < 2 || isOptimizing}
+                disabled={!apiKey || !isLoaded || !startAddress.value.trim() || isOptimizing}
                 className="h-12 flex-1 text-base font-semibold"
               >
                 {isOptimizing ? (
