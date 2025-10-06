@@ -171,8 +171,8 @@ const Index = () => {
       const result = await optimizeRoute(allAddresses, apiKey);
       console.log("✅ Optimering klar!", result);
       
-      // Spara rutten lokalt
-      saveRoute(startAddress, { value: finalEndAddress, placeId: endAddress.placeId }, filledAddresses);
+      // Spara hela det optimerade resultatet
+      saveRoute(result);
       
       setOptimizedRoute(result);
       toast.success(`Rutt optimerad! ${result.segments.length} stopp`);
@@ -188,19 +188,6 @@ const Index = () => {
     } finally {
       setIsOptimizing(false);
     }
-  };
-
-  const handleLoadRoute = (
-    loadedStart: Address,
-    loadedEnd: Address,
-    loadedAddresses: Address[]
-  ) => {
-    setStartAddress(loadedStart);
-    setEndAddress(loadedEnd);
-    setAddresses(loadedAddresses);
-    
-    // Scrolla till toppen
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const filledCount = addresses.filter((addr) => addr.value.trim() !== "").length;
@@ -225,7 +212,7 @@ const Index = () => {
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
         {/* Tidigare rutter */}
-        <SavedRoutes onLoadRoute={handleLoadRoute} />
+        <SavedRoutes />
 
         {/* API Key Warning */}
         {!apiKey && (

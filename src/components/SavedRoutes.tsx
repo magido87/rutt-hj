@@ -1,16 +1,14 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SavedRoute, Address } from "@/types/route";
+import { SavedRoute } from "@/types/route";
 import { getSavedRoutes, deleteSavedRoute } from "@/utils/routeStorage";
-import { Clock, MapPin, Trash2, RotateCcw } from "lucide-react";
+import { Clock, MapPin, Trash2, RotateCcw, Route as RouteIcon } from "lucide-react";
 import { toast } from "sonner";
 
-interface SavedRoutesProps {
-  onLoadRoute: (startAddress: Address, endAddress: Address, addresses: Address[]) => void;
-}
-
-export const SavedRoutes = ({ onLoadRoute }: SavedRoutesProps) => {
+export const SavedRoutes = () => {
+  const navigate = useNavigate();
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
 
   const loadRoutes = () => {
@@ -23,7 +21,10 @@ export const SavedRoutes = ({ onLoadRoute }: SavedRoutesProps) => {
   }, []);
 
   const handleLoadRoute = (route: SavedRoute) => {
-    onLoadRoute(route.startAddress, route.endAddress, route.addresses);
+    // Navigera direkt till karta-sidan med hela rutten
+    navigate("/karta", {
+      state: { routeData: route.routeData }
+    });
     toast.success("Rutt laddad!");
   };
 
@@ -59,6 +60,20 @@ export const SavedRoutes = ({ onLoadRoute }: SavedRoutesProps) => {
     });
   };
 
+  const formatDistance = (meters: number): string => {
+    const km = meters / 1000;
+    return `${km.toFixed(1)} km`;
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}min`;
+    }
+    return `${minutes}min`;
+  };
+
   if (savedRoutes.length === 0) {
     return null;
   }
@@ -91,12 +106,24 @@ export const SavedRoutes = ({ onLoadRoute }: SavedRoutesProps) => {
                   <div className="space-y-1 text-sm">
                     <div className="flex items-start gap-2">
                       <span className="text-accent font-semibold min-w-[50px]">Start:</span>
-                      <span className="truncate">{route.startAddress.value}</span>
+                      <span className="truncate">{route.startAddress}</span>
                     </div>
-                    {route.endAddress.value && route.endAddress.value !== route.startAddress.value && (
+                    {route.endAddress && route.endAddress !== route.startAddress && (
                       <div className="flex items-start gap-2">
                         <span className="text-destructive font-semibold min-w-[50px]">Slut:</span>
-                        <span className="truncate">{route.endAddress.value}</span>
+                        <span className="truncate">{route.endAddress}</span>
+                      </div>
+                    )}
+                    {route.routeData && (
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                        <span className="flex items-center gap-1">
+                          <RouteIcon className="h-3 w-3" />
+                          {formatDistance(route.routeData.totalDistance)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDuration(route.routeData.totalDuration)}
+                        </span>
                       </div>
                     )}
                   </div>

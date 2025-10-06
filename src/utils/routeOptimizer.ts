@@ -90,15 +90,19 @@ export const optimizeRoute = async (
       console.log("🌐 Anropar Directions API...");
       
       const result = await new Promise<any>((resolve, reject) => {
-        directionsService.route(
-          {
-            origin,
-            destination,
-            waypoints: allWaypoints,
-            optimizeWaypoints: true,
-            travelMode: google.maps.TravelMode.DRIVING,
-            region: "SE",
+      directionsService.route(
+        {
+          origin,
+          destination,
+          waypoints: allWaypoints,
+          optimizeWaypoints: true,
+          travelMode: google.maps.TravelMode.DRIVING,
+          drivingOptions: {
+            departureTime: new Date(),
+            trafficModel: google.maps.TrafficModel.BEST_GUESS,
           },
+          region: "SE",
+        },
           (result: any, status: any) => {
             console.log("📡 Directions API svar:", status);
             if (status === "OK") {
@@ -147,15 +151,19 @@ export const optimizeRoute = async (
 
     try {
       const result = await new Promise<any>((resolve, reject) => {
-        directionsService.route(
-          {
-            origin: currentOrigin,
-            destination: segmentDestination,
-            waypoints: segmentWaypoints,
-            optimizeWaypoints: false, // Optimera inte individuella segment
-            travelMode: google.maps.TravelMode.DRIVING,
-            region: "SE",
+      directionsService.route(
+        {
+          origin: currentOrigin,
+          destination: segmentDestination,
+          waypoints: segmentWaypoints,
+          optimizeWaypoints: false,
+          travelMode: google.maps.TravelMode.DRIVING,
+          drivingOptions: {
+            departureTime: new Date(),
+            trafficModel: google.maps.TrafficModel.BEST_GUESS,
           },
+          region: "SE",
+        },
           (result: any, status: any) => {
             if (status === "OK") {
               resolve(result);

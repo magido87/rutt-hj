@@ -1,23 +1,19 @@
-import { SavedRoute, Address } from "@/types/route";
+import { SavedRoute } from "@/types/route";
 
 const STORAGE_KEY = "saved_routes";
 const MAX_SAVED_ROUTES = 5;
 
-export const saveRoute = (
-  startAddress: Address,
-  endAddress: Address,
-  addresses: Address[]
-): void => {
+export const saveRoute = (routeData: any): void => {
   try {
     const existingRoutes = getSavedRoutes();
     
     const newRoute: SavedRoute = {
       id: `route_${Date.now()}`,
       timestamp: Date.now(),
-      startAddress,
-      endAddress,
-      addresses,
-      totalStops: 1 + addresses.filter(a => a.value.trim()).length + (endAddress.value.trim() ? 1 : 0),
+      routeData,
+      startAddress: routeData.segments[0]?.address || "Start",
+      endAddress: routeData.segments[routeData.segments.length - 1]?.address || "Slut",
+      totalStops: routeData.segments.length,
     };
 
     // Lägg till först i listan

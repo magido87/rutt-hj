@@ -3,11 +3,29 @@ export interface Address {
   placeId?: string;
 }
 
+export interface RouteSegment {
+  order: number;
+  address: string;
+  distance: number;
+  duration: number;
+  cumulativeDistance: number;
+  cumulativeDuration: number;
+}
+
+export interface OptimizedRoute {
+  segments: RouteSegment[];
+  totalDistance: number;
+  totalDuration: number;
+  polyline: string;
+  apiCalls: number;
+  warnings?: string[];
+}
+
 export interface SavedRoute {
   id: string;
   timestamp: number;
-  startAddress: Address;
-  endAddress: Address;
-  addresses: Address[];
+  routeData: OptimizedRoute;
+  startAddress: string;
+  endAddress: string;
   totalStops: number;
 }
