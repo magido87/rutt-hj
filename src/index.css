@@ -8,80 +8,114 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Light theme - Autismvänlig design: Hög kontrast, tydliga färger */
-    --background: 0 0% 98%;
-    --foreground: 215 25% 15%;
+    /* Light theme - Modern design med gradienter */
+    --background: 220 25% 97%;
+    --foreground: 220 20% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 220 20% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 220 20% 15%;
 
-    /* Primär: Djup blå för navigering och action */
-    --primary: 215 85% 35%;
+    /* Primär: Vibrant blå med djup */
+    --primary: 220 90% 56%;
     --primary-foreground: 0 0% 100%;
+    --primary-glow: 220 100% 70%;
 
-    /* Sekundär: Ljusare blå för hover-states */
-    --secondary: 215 60% 92%;
-    --secondary-foreground: 215 85% 35%;
+    /* Sekundär: Mjuk lila */
+    --secondary: 260 60% 65%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Muted: Ljusgrå för subtil information */
-    --muted: 215 15% 92%;
-    --muted-foreground: 215 15% 45%;
+    /* Muted: Ljusgrå */
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 45%;
 
-    /* Accent: Grön för success/start */
-    --accent: 145 60% 45%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent: Cyan för CTAs */
+    --accent: 180 85% 55%;
+    --accent-foreground: 220 20% 15%;
+    --accent-glow: 180 100% 70%;
 
-    /* Destructive: Röd för varningar */
-    --destructive: 0 75% 50%;
+    /* Destructive: Modern röd */
+    --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Warning: Orange för viktiga meddelanden */
-    --warning: 35 85% 55%;
+    /* Warning: Varm orange */
+    --warning: 30 95% 60%;
     --warning-foreground: 0 0% 100%;
 
-    /* Borders: Tydliga gränser för kontrast */
-    --border: 215 20% 80%;
-    --input: 215 20% 88%;
-    --ring: 215 85% 35%;
+    /* Success: Grön */
+    --success: 145 65% 50%;
+    --success-foreground: 0 0% 100%;
+
+    /* Borders & Shadows */
+    --border: 220 20% 88%;
+    --input: 220 20% 92%;
+    --ring: 220 90% 56%;
+
+    /* Gradienter */
+    --gradient-primary: linear-gradient(135deg, hsl(220 90% 56%) 0%, hsl(260 80% 60%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(180 85% 55%) 0%, hsl(220 90% 56%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(145 65% 50%) 0%, hsl(180 85% 55%) 100%);
+    
+    /* Shadows med färg */
+    --shadow-primary: 0 8px 32px hsl(220 90% 56% / 0.25);
+    --shadow-accent: 0 8px 32px hsl(180 85% 55% / 0.25);
+    --shadow-glow: 0 0 48px hsl(220 100% 70% / 0.4);
 
     --radius: 0.75rem;
   }
 
   .dark {
-    /* Dark theme - Mjuk på ögonen */
-    --background: 222 20% 12%;
-    --foreground: 210 40% 95%;
+    /* Dark theme - Modern mörk med glöd */
+    --background: 220 25% 10%;
+    --foreground: 220 15% 95%;
 
-    --card: 222 20% 14%;
-    --card-foreground: 210 40% 95%;
+    --card: 220 20% 13%;
+    --card-foreground: 220 15% 95%;
 
-    --popover: 222 20% 14%;
-    --popover-foreground: 210 40% 95%;
+    --popover: 220 20% 13%;
+    --popover-foreground: 220 15% 95%;
 
-    --primary: 215 75% 55%;
-    --primary-foreground: 222 20% 12%;
+    /* Primär: Ljusare blå i mörkt läge */
+    --primary: 220 85% 65%;
+    --primary-foreground: 220 25% 10%;
+    --primary-glow: 220 100% 75%;
 
-    --secondary: 217 25% 22%;
-    --secondary-foreground: 210 40% 95%;
+    /* Sekundär: Mjuk lila */
+    --secondary: 260 50% 55%;
+    --secondary-foreground: 220 15% 95%;
 
-    --muted: 217 20% 20%;
-    --muted-foreground: 215 15% 65%;
+    --muted: 220 20% 18%;
+    --muted-foreground: 220 15% 65%;
 
-    --accent: 145 60% 50%;
-    --accent-foreground: 222 20% 12%;
+    /* Accent: Cyan */
+    --accent: 180 75% 60%;
+    --accent-foreground: 220 25% 10%;
+    --accent-glow: 180 95% 70%;
 
-    --destructive: 0 75% 55%;
+    --destructive: 0 80% 65%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 35 85% 60%;
-    --warning-foreground: 222 20% 12%;
+    --warning: 30 90% 65%;
+    --warning-foreground: 220 25% 10%;
 
-    --border: 217 20% 25%;
-    --input: 217 20% 22%;
-    --ring: 215 75% 55%;
+    --success: 145 60% 55%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 20% 22%;
+    --input: 220 20% 18%;
+    --ring: 220 85% 65%;
+
+    /* Gradienter dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(220 85% 65%) 0%, hsl(260 70% 60%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(180 75% 60%) 0%, hsl(220 85% 65%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(145 60% 55%) 0%, hsl(180 75% 60%) 100%);
+    
+    /* Starkare glöd i mörkt läge */
+    --shadow-primary: 0 8px 32px hsl(220 85% 65% / 0.35);
+    --shadow-accent: 0 8px 32px hsl(180 75% 60% / 0.35);
+    --shadow-glow: 0 0 56px hsl(220 100% 75% / 0.5);
   }
 
   .steampunk {
@@ -132,6 +166,39 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Gradient utilities */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  .gradient-success {
+    background: var(--gradient-success);
+  }
+
+  /* Glow effects */
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-primary {
+    box-shadow: var(--shadow-primary);
+  }
+
+  .shadow-accent {
+    box-shadow: var(--shadow-accent);
+  }
+
+  /* Glassmorphism för cards */
+  .glass-card {
+    background: hsl(var(--card) / 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.3);
   }
 
   /* Steampunk-specifika element */
