@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { optimizeRoute, OptimizedRoute } from "@/utils/routeOptimizer";
 import { saveRoute } from "@/utils/routeStorage";
+import { getSettings } from "@/types/settings";
 import { Address } from "@/types/route";
 import { toast } from "sonner";
 import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2 } from "lucide-react";
@@ -16,13 +17,16 @@ import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2 } from "luc
 const Index = () => {
   const navigate = useNavigate();
   
+  // Ladda inställningar
+  const settings = getSettings();
+  
   // Start och slutadress
   const [startAddress, setStartAddress] = useState<Address>({
-    value: "Fraktvägen, Mölnlycke",
+    value: settings.defaultStartAddress || "Fraktvägen, Mölnlycke",
     placeId: undefined,
   });
   const [endAddress, setEndAddress] = useState<Address>({
-    value: "Fraktvägen, Mölnlycke",
+    value: settings.defaultEndAddress || "Fraktvägen, Mölnlycke",
     placeId: undefined,
   });
   
@@ -84,9 +88,9 @@ const Index = () => {
   const { isLoaded, error } = useGoogleMaps(apiKey);
 
   useEffect(() => {
-    const savedKey = localStorage.getItem("google_maps_api_key");
-    if (savedKey) {
-      setApiKey(savedKey);
+    const settings = getSettings();
+    if (settings.apiKey) {
+      setApiKey(settings.apiKey);
     }
   }, []);
 

@@ -1,3 +1,5 @@
+import { getSettings } from "@/types/settings";
+
 interface Address {
   value: string;
   placeId?: string;
@@ -66,6 +68,11 @@ export const optimizeRoute = async (
   const warnings: string[] = [];
   let apiCalls = 0;
 
+  // Hämta inställningar för trafikmodell
+  const settings = getSettings();
+  const trafficModel = settings.trafficModel || "best_guess";
+  console.log("🚦 Använder trafikmodell:", trafficModel);
+
   // Start och slutpunkt
   const origin = addresses[0].value;
   const destination = addresses[addresses.length - 1].value;
@@ -99,7 +106,7 @@ export const optimizeRoute = async (
           travelMode: google.maps.TravelMode.DRIVING,
           drivingOptions: {
             departureTime: new Date(),
-            trafficModel: google.maps.TrafficModel.BEST_GUESS,
+            trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
           },
           region: "SE",
         },
@@ -160,7 +167,7 @@ export const optimizeRoute = async (
           travelMode: google.maps.TravelMode.DRIVING,
           drivingOptions: {
             departureTime: new Date(),
-            trafficModel: google.maps.TrafficModel.BEST_GUESS,
+            trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
           },
           region: "SE",
         },

@@ -3,42 +3,61 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { StartEndInput } from "@/components/StartEndInput";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 import { ArrowLeft, Save, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getSettings, saveSettings, AppSettings } from "@/types/settings";
+import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 
 export default function Settings() {
-  const [apiKey, setApiKey] = useState("");
+  const [settings, setSettings] = useState<AppSettings>({
+    apiKey: "",
+    defaultStartAddress: "",
+    defaultEndAddress: "",
+    trafficModel: "best_guess",
+    units: "metric",
+  });
+
+  const { isLoaded } = useGoogleMaps(settings.apiKey);
 
   useEffect(() => {
-    const savedKey = localStorage.getItem("google_maps_api_key");
-    if (savedKey) {
-      setApiKey(savedKey);
-    }
+    const loadedSettings = getSettings();
+    setSettings(loadedSettings);
   }, []);
 
   const handleSave = () => {
-    if (!apiKey.trim()) {
+    if (!settings.apiKey.trim()) {
       toast.error("API-nyckel kan inte vara tom");
       return;
     }
 
-    localStorage.setItem("google_maps_api_key", apiKey.trim());
-    toast.success("API-nyckel sparad!");
+    saveSettings(settings);
+    toast.success("Inställningar sparade!");
+  };
+
+  const handleFieldChange = (field: keyof AppSettings, value: string) => {
+    setSettings((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Link to="/">
-            <Button variant="outline" size="icon" className="h-12 w-12">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold text-foreground">Inställningar</h1>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="outline" size="icon" className="h-12 w-12">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold text-foreground">Inställningar</h1>
+          </div>
+          <ThemeToggle />
         </div>
 
+        {/* API-nyckel */}
         <Card>
           <CardHeader>
             <CardTitle>Google Maps API-nyckel</CardTitle>
@@ -49,22 +68,17 @@ export default function Settings() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="apiKey" className="text-base font-medium">
-                API-nyckel
+                API-nyckel *
               </Label>
               <Input
                 id="apiKey"
                 type="text"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                value={settings.apiKey}
+                onChange={(e) => handleFieldChange("apiKey", e.target.value)}
                 placeholder="Klistra in din Google Maps API-nyckel här..."
                 className="h-12 text-base border-2"
               />
             </div>
-
-            <Button onClick={handleSave} className="h-12 px-6 text-base w-full md:w-auto">
-              <Save className="h-5 w-5 mr-2" />
-              Spara nyckel
-            </Button>
 
             <div className="pt-4 border-t space-y-2">
               <h3 className="font-semibold text-foreground">Hur skaffar jag en API-nyckel?</h3>
@@ -87,6 +101,101 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Standardadresser */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Standardadresser</CardTitle>
+            <CardDescription>
+              Dessa adresser fylls i automatiskt när du skapar en ny rutt.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <StartEndInput
+              value={settings.defaultStartAddress}
+              onChange={(value) => handleFieldChange("defaultStartAddress", value)}
+              label="Standard startadress"
+              type="start"
+              apiKey={settings.apiKey}
+              placeholder="T.ex. Fraktvägen, Mölnlycke"
+            />
+            <StartEndInput
+              value={settings.defaultEndAddress}
+              onChange={(value) => handleFieldChange("defaultEndAddress", value)}
+              label="Standard slutadress (valfritt)"
+              type="end"
+              apiKey={settings.apiKey}
+              placeholder="Lämna tomt för att återvända till start"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Trafikläge och enheter */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Ruttinställningar</CardTitle>
+            <CardDescription>
+              Anpassa hur rutter beräknas och visas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="trafficModel" className="text-base font-medium">
+                Trafikläge
+              </Label>
+              <Select
+                value={settings.trafficModel}
+                onValueChange={(value) => handleFieldChange("trafficModel", value)}
+              >
+                <SelectTrigger id="trafficModel" className="h-12 text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="best_guess">
+                    Bästa gissning (standard)
+                  </SelectItem>
+                  <SelectItem value="optimistic">
+                    Optimistisk (minimal trafik)
+                  </SelectItem>
+                  <SelectItem value="pessimistic">
+                    Pessimistisk (maximal trafik)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Påverkar tidsberäkningar baserat på trafikförhållanden
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="units" className="text-base font-medium">
+                Enheter
+              </Label>
+              <Select
+                value={settings.units}
+                onValueChange={(value) => handleFieldChange("units", value)}
+              >
+                <SelectTrigger id="units" className="h-12 text-base">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="metric">
+                    Metriskt (km, minuter)
+                  </SelectItem>
+                  <SelectItem value="imperial">
+                    Imperial (miles, minuter)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Spara-knapp */}
+        <Button onClick={handleSave} className="h-12 px-6 text-base w-full md:w-auto">
+          <Save className="h-5 w-5 mr-2" />
+          Spara inställningar
+        </Button>
       </div>
     </div>
   );
