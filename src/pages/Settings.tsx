@@ -130,67 +130,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Trafikläge och enheter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ruttinställningar</CardTitle>
-            <CardDescription>
-              Anpassa hur rutter beräknas och visas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="trafficModel" className="text-base font-medium">
-                Trafikläge
-              </Label>
-              <Select
-                value={settings.trafficModel}
-                onValueChange={(value) => handleFieldChange("trafficModel", value)}
-              >
-                <SelectTrigger id="trafficModel" className="h-12 text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="best_guess">
-                    Bästa gissning (standard)
-                  </SelectItem>
-                  <SelectItem value="optimistic">
-                    Optimistisk (minimal trafik)
-                  </SelectItem>
-                  <SelectItem value="pessimistic">
-                    Pessimistisk (maximal trafik)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">
-                Påverkar tidsberäkningar baserat på trafikförhållanden
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="units" className="text-base font-medium">
-                Enheter
-              </Label>
-              <Select
-                value={settings.units}
-                onValueChange={(value) => handleFieldChange("units", value)}
-              >
-                <SelectTrigger id="units" className="h-12 text-base">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="metric">
-                    Metriskt (km, minuter)
-                  </SelectItem>
-                  <SelectItem value="imperial">
-                    Imperial (miles, minuter)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Spara-knapp */}
         <Button onClick={handleSave} className="h-12 px-6 text-base w-full md:w-auto">
           <Save className="h-5 w-5 mr-2" />
