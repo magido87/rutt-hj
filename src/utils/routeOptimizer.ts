@@ -171,7 +171,8 @@ export const optimizeRoute = async (
         computeAlternativeRoutes: false,
         languageCode: "sv",
         units: "METRIC",
-        optimizeWaypointOrder: true,
+        // Waypoint-optimering stöds inte med trafikläge
+        optimizeWaypointOrder: routingPreference === "TRAFFIC_UNAWARE",
       };
 
       // Lägg till departureTime om det finns
