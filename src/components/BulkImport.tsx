@@ -53,9 +53,17 @@ export function BulkImport({ open, onOpenChange, onImport, apiKey }: BulkImportP
           body: formData,
         });
         
-        if (error) throw error;
-        if (data?.addresses) {
+        if (error) {
+          console.error('PDF parsing error:', error);
+          throw new Error('Kunde inte läsa PDF-filen. Kontrollera att det är en textbaserad PDF och inte en skannad bild.');
+        }
+        
+        if (data?.addresses && data.addresses.length > 0) {
           extractedText = data.addresses.join('\n');
+        } else {
+          toast.error("Inga adresser hittades i PDF:en. Prova att använda Excel eller CSV istället.");
+          setIsUploading(false);
+          return;
         }
       } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
         // Excel
@@ -222,7 +230,11 @@ export function BulkImport({ open, onOpenChange, onImport, apiKey }: BulkImportP
             <CardHeader>
               <CardTitle className="text-base">Steg 1: Ladda upp eller klistra in</CardTitle>
               <CardDescription>
-                Stödjer PDF, Excel (.xlsx/.xls) och CSV-filer
+                Stödjer PDF (textbaserad), Excel (.xlsx/.xls) och CSV-filer. 
+                <br />
+                <span className="text-xs text-muted-foreground">
+                  OBS: PDF-filer måste innehålla text, inte skannade bilder. Använd Excel/CSV för bäst resultat.
+                </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
