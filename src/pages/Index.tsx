@@ -231,10 +231,19 @@ const Index = () => {
           const [hours, minutes] = departureTime.split(":").map(Number);
           apiDepartureTime = new Date(departureDate);
           apiDepartureTime.setHours(hours, minutes, 0, 0);
+          
+          // VIKTIGT: Kontrollera att tiden är i framtiden
+          const now = new Date();
+          if (apiDepartureTime <= now) {
+            console.warn("⚠️ Vald tid är i det förflutna, använder 'nu' istället");
+            apiDepartureTime = new Date(now.getTime() + 5 * 60 * 1000); // 5 min framåt
+          }
+          
           console.log(`🚦 TRAFIKOPTIMERAD FÖR: ${format(apiDepartureTime, "EEEE 'den' do MMMM 'kl' HH:mm", { locale: sv })}`);
           console.log(`📅 Timestamp: ${apiDepartureTime.getTime()}`);
         } else {
-          apiDepartureTime = new Date(); // Nu
+          // "Nu" = 5 minuter framåt för att Google Maps ska acceptera det
+          apiDepartureTime = new Date(Date.now() + 5 * 60 * 1000);
           console.log(`🚦 TRAFIKOPTIMERAD FÖR: NU (${format(apiDepartureTime, "EEEE HH:mm", { locale: sv })})`);
         }
       } else {

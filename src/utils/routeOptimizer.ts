@@ -69,13 +69,23 @@ export const optimizeRoute = async (
   const warnings: string[] = [];
   let apiCalls = 0;
 
-  // Hämta inställningar för trafikmodell (används endast om departureTime finns)
+  // Hämta inställningar för trafikmodell
   const settings = getSettings();
   const trafficModel = settings.trafficModel || "best_guess";
+  
+  // Logga trafikläge
   if (departureTime) {
-    console.log("🚦 Trafikoptimerad med modell:", trafficModel);
+    // VIKTIGT: Google kräver att departureTime är i framtiden
+    const now = new Date();
+    if (departureTime <= now) {
+      console.warn("⚠️ departureTime är i det förflutna, justerar till 5min i framtiden");
+      departureTime = new Date(now.getTime() + 5 * 60 * 1000);
+    }
+    console.log("🚦 TRAFIKLÄGE AKTIVERAT");
+    console.log("📅 Avresetid:", departureTime.toISOString());
+    console.log("🎯 Trafikmodell:", trafficModel);
   } else {
-    console.log("📍 Standard-rutt (ingen trafikdata)");
+    console.log("📍 STANDARD-LÄGE (ingen trafikdata)");
   }
 
   // Start och slutpunkt
@@ -101,35 +111,47 @@ export const optimizeRoute = async (
     try {
       console.log("🌐 Anropar Directions API...");
       
+      // Bygg request object
+      const requestOptions: any = {
+        origin,
+        destination,
+        waypoints: allWaypoints,
+        optimizeWaypoints: true,
+        travelMode: google.maps.TravelMode.DRIVING,
+        region: "SE",
+      };
+
+      // Lägg till trafikdata om departureTime finns
+      if (departureTime) {
+        requestOptions.drivingOptions = {
+          departureTime: departureTime,
+          trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
+        };
+        console.log("🚦 drivingOptions tillagt:", requestOptions.drivingOptions);
+      }
+      
       const result = await new Promise<any>((resolve, reject) => {
-      directionsService.route(
-        {
-          origin,
-          destination,
-          waypoints: allWaypoints,
-          optimizeWaypoints: true,
-          travelMode: google.maps.TravelMode.DRIVING,
-          ...(departureTime && {
-            drivingOptions: {
-              departureTime: departureTime,
-              trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
-            }
-          }),
-          region: "SE",
-        },
-          (result: any, status: any) => {
-            console.log("📡 Directions API svar:", status);
-            if (status === "OK") {
-              resolve(result);
-            } else if (status === "ZERO_RESULTS") {
-              reject(new Error("Inga rutter hittades mellan dessa adresser"));
-            } else if (status === "OVER_QUERY_LIMIT") {
-              reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
+        directionsService.route(requestOptions, (result: any, status: any) => {
+          console.log("📡 Directions API svar:", status);
+          if (status === "OK") {
+            // Logga om vi fick trafikdata
+            if (result.routes[0].legs[0].duration_in_traffic) {
+              console.log("✅ Trafikdata mottagen!");
+              const normalDuration = result.routes[0].legs[0].duration.value;
+              const trafficDuration = result.routes[0].legs[0].duration_in_traffic.value;
+              console.log(`⏱️ Normal: ${Math.round(normalDuration/60)}min, Med trafik: ${Math.round(trafficDuration/60)}min`);
             } else {
-              reject(new Error(`Directions API-fel: ${status}`));
+              console.log("⚠️ Ingen trafikdata i svaret");
             }
+            resolve(result);
+          } else if (status === "ZERO_RESULTS") {
+            reject(new Error("Inga rutter hittades mellan dessa adresser"));
+          } else if (status === "OVER_QUERY_LIMIT") {
+            reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
+          } else {
+            reject(new Error(`Directions API-fel: ${status}`));
           }
-        );
+        });
       });
 
       return buildRouteResult(result, addresses, apiCalls, warnings);
@@ -164,34 +186,36 @@ export const optimizeRoute = async (
     apiCalls++;
 
     try {
+      // Bygg request object
+      const requestOptions: any = {
+        origin: currentOrigin,
+        destination: segmentDestination,
+        waypoints: segmentWaypoints,
+        optimizeWaypoints: false,
+        travelMode: google.maps.TravelMode.DRIVING,
+        region: "SE",
+      };
+
+      // Lägg till trafikdata om departureTime finns
+      if (departureTime) {
+        requestOptions.drivingOptions = {
+          departureTime: departureTime,
+          trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
+        };
+      }
+
       const result = await new Promise<any>((resolve, reject) => {
-      directionsService.route(
-        {
-          origin: currentOrigin,
-          destination: segmentDestination,
-          waypoints: segmentWaypoints,
-          optimizeWaypoints: false,
-          travelMode: google.maps.TravelMode.DRIVING,
-          ...(departureTime && {
-            drivingOptions: {
-              departureTime: departureTime,
-              trafficModel: google.maps.TrafficModel[trafficModel.toUpperCase() as keyof typeof google.maps.TrafficModel],
-            }
-          }),
-          region: "SE",
-        },
-          (result: any, status: any) => {
-            if (status === "OK") {
-              resolve(result);
-            } else if (status === "ZERO_RESULTS") {
-              reject(new Error(`Segment ${i + 1}: Inga rutter hittades`));
-            } else if (status === "OVER_QUERY_LIMIT") {
-              reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
-            } else {
-              reject(new Error(`Segment ${i + 1}: Directions API-fel: ${status}`));
-            }
+        directionsService.route(requestOptions, (result: any, status: any) => {
+          if (status === "OK") {
+            resolve(result);
+          } else if (status === "ZERO_RESULTS") {
+            reject(new Error(`Segment ${i + 1}: Inga rutter hittades`));
+          } else if (status === "OVER_QUERY_LIMIT") {
+            reject(new Error("API-gräns nådd. Vänta en stund och försök igen."));
+          } else {
+            reject(new Error(`Segment ${i + 1}: Directions API-fel: ${status}`));
           }
-        );
+        });
       });
 
       // Samla legs och polyline
