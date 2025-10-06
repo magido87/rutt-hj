@@ -6,7 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RouteMap } from "@/components/RouteMap";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ExportMenu } from "@/components/ExportMenu";
-import { ArrowLeft, MapPin, Clock, Route, AlertCircle } from "lucide-react";
+import { SendEmailDialog } from "@/components/SendEmailDialog";
+import { ShareRouteDialog } from "@/components/ShareRouteDialog";
+import { ArrowLeft, MapPin, Clock, Route, AlertCircle, Mail, Share2 } from "lucide-react";
 
 interface RouteSegment {
   order: number;
@@ -45,6 +47,9 @@ export default function MapView() {
   const navigate = useNavigate();
   const [routeData, setRouteData] = useState<OptimizedRoute | null>(null);
   const [apiKey, setApiKey] = useState("");
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [routeId, setRouteId] = useState<string>("");
 
   useEffect(() => {
     // Hämta API-nyckel
@@ -53,10 +58,35 @@ export default function MapView() {
       setApiKey(savedKey);
     }
 
+    // Kolla om det är en delad rutt
+    const urlParams = new URLSearchParams(location.search);
+    const sharedId = urlParams.get('shared');
+    
+    if (sharedId) {
+      // Ladda delad rutt från localStorage
+      const savedRoutes = localStorage.getItem("saved_routes");
+      if (savedRoutes) {
+        try {
+          const routes = JSON.parse(savedRoutes);
+          const sharedRoute = routes.find((r: any) => r.id === sharedId);
+          if (sharedRoute) {
+            setRouteData(sharedRoute.route);
+            setRouteId(sharedId);
+            return;
+          }
+        } catch (e) {
+          console.error("Failed to load shared route:", e);
+        }
+      }
+    }
+
     // Hämta rutt-data från state eller sessionStorage
     const stateData = location.state?.routeData;
     if (stateData) {
       setRouteData(stateData);
+      // Generera ID för denna rutt
+      const newId = `route-${Date.now()}`;
+      setRouteId(newId);
       // Spara i sessionStorage som backup
       sessionStorage.setItem("optimized_route", JSON.stringify(stateData));
     } else {
@@ -64,7 +94,9 @@ export default function MapView() {
       const savedRoute = sessionStorage.getItem("optimized_route");
       if (savedRoute) {
         try {
-          setRouteData(JSON.parse(savedRoute));
+          const parsed = JSON.parse(savedRoute);
+          setRouteData(parsed);
+          setRouteId(`route-${Date.now()}`);
         } catch (e) {
           console.error("Failed to parse saved route:", e);
         }
@@ -113,6 +145,24 @@ export default function MapView() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEmailDialog(true)}
+              className="h-10"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Maila PDF</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowShareDialog(true)}
+              className="h-10"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Dela rutt</span>
+            </Button>
             <ExportMenu
               segments={segments}
               totalDistance={totalDistance}
@@ -233,6 +283,18 @@ export default function MapView() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Dialogs */}
+      <SendEmailDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        routeData={routeData}
+      />
+      <ShareRouteDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        routeId={routeId}
+      />
     </div>
   );
 }

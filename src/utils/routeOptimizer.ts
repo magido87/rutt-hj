@@ -20,7 +20,7 @@ export interface OptimizedRoute {
   totalDuration: number;
   polyline: string;
   apiCalls: number;
-  warnings: string[];
+  warnings?: string[];
 }
 
 // Hjälpfunktion: Dela upp waypoints i segment (max 23 waypoints per segment för säkerhet)

@@ -38,78 +38,93 @@ const getFileName = (extension: string): string => {
   return `rutt_${dateStr}_${timeStr}.${extension}`;
 };
 
+const generatePDF = (data: ExportData): jsPDF => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  let yPos = 20;
+
+  // Titel
+  doc.setFontSize(20);
+  doc.text("Optimerad Rutt", pageWidth / 2, yPos, { align: "center" });
+  yPos += 15;
+
+  // Datum och tid
+  doc.setFontSize(10);
+  const dateStr = new Date(data.timestamp).toLocaleString("sv-SE");
+  doc.text(`Skapad: ${dateStr}`, pageWidth / 2, yPos, { align: "center" });
+  yPos += 10;
+
+  // Sammanfattning
+  doc.setFontSize(12);
+  doc.text(`Total sträcka: ${formatDistance(data.totalDistance)}`, 20, yPos);
+  yPos += 7;
+  doc.text(`Total körtid: ${formatDuration(data.totalDuration)}`, 20, yPos);
+  yPos += 7;
+  doc.text(`Antal stopp: ${data.segments.length}`, 20, yPos);
+  yPos += 15;
+
+  // Rubriker för stopp
+  doc.setFontSize(10);
+  doc.setFont(undefined, "bold");
+  doc.text("Nr", 20, yPos);
+  doc.text("Adress", 35, yPos);
+  doc.text("Avstånd", 130, yPos);
+  doc.text("Tid", 165, yPos);
+  yPos += 7;
+
+  // Linje under rubriker
+  doc.line(20, yPos - 2, pageWidth - 20, yPos - 2);
+  yPos += 3;
+
+  // Stopp
+  doc.setFont(undefined, "normal");
+  data.segments.forEach((segment, index) => {
+    // Ny sida om vi når slutet
+    if (yPos > 270) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.text(segment.order.toString(), 20, yPos);
+    
+    // Adress (korta ner om för lång)
+    const address = segment.address.length > 45 
+      ? segment.address.substring(0, 42) + "..." 
+      : segment.address;
+    doc.text(address, 35, yPos);
+
+    if (index > 0) {
+      doc.text(formatDistance(segment.distance), 130, yPos);
+      doc.text(formatDuration(segment.duration), 165, yPos);
+    } else {
+      doc.text("START", 130, yPos);
+      doc.text("-", 165, yPos);
+    }
+
+    yPos += 7;
+  });
+
+  return doc;
+};
+
 export const exportToPDF = (data: ExportData): void => {
   try {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let yPos = 20;
-
-    // Titel
-    doc.setFontSize(20);
-    doc.text("Optimerad Rutt", pageWidth / 2, yPos, { align: "center" });
-    yPos += 15;
-
-    // Datum och tid
-    doc.setFontSize(10);
-    const dateStr = new Date(data.timestamp).toLocaleString("sv-SE");
-    doc.text(`Skapad: ${dateStr}`, pageWidth / 2, yPos, { align: "center" });
-    yPos += 10;
-
-    // Sammanfattning
-    doc.setFontSize(12);
-    doc.text(`Total sträcka: ${formatDistance(data.totalDistance)}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Total körtid: ${formatDuration(data.totalDuration)}`, 20, yPos);
-    yPos += 7;
-    doc.text(`Antal stopp: ${data.segments.length}`, 20, yPos);
-    yPos += 15;
-
-    // Rubriker för stopp
-    doc.setFontSize(10);
-    doc.setFont(undefined, "bold");
-    doc.text("Nr", 20, yPos);
-    doc.text("Adress", 35, yPos);
-    doc.text("Avstånd", 130, yPos);
-    doc.text("Tid", 165, yPos);
-    yPos += 7;
-
-    // Linje under rubriker
-    doc.line(20, yPos - 2, pageWidth - 20, yPos - 2);
-    yPos += 3;
-
-    // Stopp
-    doc.setFont(undefined, "normal");
-    data.segments.forEach((segment, index) => {
-      // Ny sida om vi når slutet
-      if (yPos > 270) {
-        doc.addPage();
-        yPos = 20;
-      }
-
-      doc.text(segment.order.toString(), 20, yPos);
-      
-      // Adress (korta ner om för lång)
-      const address = segment.address.length > 45 
-        ? segment.address.substring(0, 42) + "..." 
-        : segment.address;
-      doc.text(address, 35, yPos);
-
-      if (index > 0) {
-        doc.text(formatDistance(segment.distance), 130, yPos);
-        doc.text(formatDuration(segment.duration), 165, yPos);
-      } else {
-        doc.text("START", 130, yPos);
-        doc.text("-", 165, yPos);
-      }
-
-      yPos += 7;
-    });
-
-    // Spara PDF
+    const doc = generatePDF(data);
     doc.save(getFileName("pdf"));
     console.log("✅ PDF exporterad");
   } catch (error) {
     console.error("PDF export error:", error);
+    throw new Error("Kunde inte skapa PDF");
+  }
+};
+
+// Ny funktion för att få PDF som Blob för email
+export const getPDFBlob = (data: ExportData): Blob => {
+  try {
+    const doc = generatePDF(data);
+    return doc.output('blob');
+  } catch (error) {
+    console.error("PDF blob error:", error);
     throw new Error("Kunde inte skapa PDF");
   }
 };
