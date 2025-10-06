@@ -25,15 +25,16 @@ export interface OptimizedRoute {
 
 // Routes API 2.0 interfaces
 interface RoutesAPILocation {
-  latLng?: {
+  latLng: {
     latitude: number;
     longitude: number;
   };
-  address?: string;
 }
 
 interface RoutesAPIWaypoint {
-  location: RoutesAPILocation;
+  location?: RoutesAPILocation;
+  placeId?: string;
+  address?: string;
   via?: boolean;
 }
 
@@ -136,13 +137,13 @@ export const optimizeRoute = async (
 
   // Konvertera adresser till Routes API 2.0 waypoints
   const origin: RoutesAPIWaypoint = {
-    location: { address: addresses[0].value }
+    address: addresses[0].value
   };
   const destination: RoutesAPIWaypoint = {
-    location: { address: addresses[addresses.length - 1].value }
+    address: addresses[addresses.length - 1].value
   };
   const intermediates: RoutesAPIWaypoint[] = addresses.slice(1, -1).map((addr: Address) => ({
-    location: { address: addr.value }
+    address: addr.value
   }));
 
   console.log("📍 Rutt:", { 
