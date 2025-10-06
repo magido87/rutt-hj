@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddressInput } from "@/components/AddressInput";
-import { RouteResults } from "@/components/RouteResults";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { optimizeRoute, OptimizedRoute } from "@/utils/routeOptimizer";
 import { toast } from "sonner";
 import { Plus, Settings as SettingsIcon, Route, AlertCircle, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
 
 interface Address {
   value: string;
@@ -15,6 +14,7 @@ interface Address {
 }
 
 const Index = () => {
+  const navigate = useNavigate();
   const [addresses, setAddresses] = useState<Address[]>(
     Array(10).fill({ value: "", placeId: undefined })
   );
@@ -52,19 +52,36 @@ const Index = () => {
   };
 
   const handleOptimize = async () => {
+    console.log("🚀 Optimera rutt - START");
+    
+    // Validering 1: API-nyckel
     if (!apiKey) {
+      console.error("❌ API-nyckel saknas");
       toast.error("Lägg till din API-nyckel i inställningar först");
       return;
     }
 
+    // Validering 2: Minst 2 adresser
     const filledAddresses = addresses.filter((addr) => addr.value.trim() !== "");
+    console.log(`📍 ${filledAddresses.length} adresser ifyllda`, filledAddresses);
+    
     if (filledAddresses.length < 2) {
+      console.error("❌ För få adresser");
       toast.error("Du behöver minst 2 adresser för att optimera en rutt");
       return;
     }
 
-    if (filledAddresses.length > 27) {
-      toast.error("Google Maps stödjer max 27 stopp. Ta bort några adresser.");
+    // Validering 3: Max 50 stopp (vi hanterar upp till 50)
+    if (filledAddresses.length > 50) {
+      console.error("❌ För många adresser");
+      toast.error("Max 50 stopp stöds. Ta bort några adresser.");
+      return;
+    }
+
+    // Validering 4: Google Maps måste vara laddat
+    if (!isLoaded || !(window as any).google) {
+      console.error("❌ Google Maps inte laddat");
+      toast.error("Google Maps laddas fortfarande. Vänta ett ögonblick.");
       return;
     }
 
@@ -72,20 +89,21 @@ const Index = () => {
     setOptimizedRoute(null);
 
     try {
+      console.log("⚙️ Kör optimering...");
       const result = await optimizeRoute(filledAddresses, apiKey);
+      console.log("✅ Optimering klar!", result);
+      
       setOptimizedRoute(result);
       toast.success(`Rutt optimerad! ${result.segments.length} stopp`);
       
-      // Scrolla till resultat
-      setTimeout(() => {
-        document.getElementById("route-results")?.scrollIntoView({ 
-          behavior: "smooth",
-          block: "start"
-        });
-      }, 100);
+      // Navigera till karta-sidan med resultatet
+      console.log("🗺️ Navigerar till /karta");
+      navigate("/karta", { 
+        state: { routeData: result }
+      });
     } catch (error: any) {
-      console.error("Optimization error:", error);
-      toast.error(error.message || "Kunde inte optimera rutten");
+      console.error("❌ Optimeringsfel:", error);
+      toast.error(error.message || "Kunde inte optimera rutten. Kontrollera din API-nyckel och internetanslutning.");
     } finally {
       setIsOptimizing(false);
     }
@@ -194,19 +212,6 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Results */}
-        {optimizedRoute && (
-          <div id="route-results">
-            <RouteResults
-              segments={optimizedRoute.segments}
-              totalDistance={optimizedRoute.totalDistance}
-              totalDuration={optimizedRoute.totalDuration}
-              polyline={optimizedRoute.polyline}
-              apiKey={apiKey}
-            />
-          </div>
-        )}
       </main>
     </div>
   );

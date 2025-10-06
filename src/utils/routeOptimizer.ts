@@ -17,12 +17,15 @@ export interface OptimizedRoute {
   totalDistance: number;
   totalDuration: number;
   polyline: string;
+  apiCalls: number;
 }
 
 export const optimizeRoute = async (
   addresses: Address[],
   apiKey: string
 ): Promise<OptimizedRoute> => {
+  console.log("🔧 optimizeRoute() START", { addressCount: addresses.length });
+  
   if (addresses.length < 2) {
     throw new Error("Behöver minst 2 adresser");
   }
@@ -42,12 +45,19 @@ export const optimizeRoute = async (
     stopover: true,
   }));
 
+  console.log("📍 Rutt:", { origin, destination, waypointsCount: waypoints.length });
+
   // Google Maps begränsning: max 25 waypoints
   if (waypoints.length > 25) {
     throw new Error("Google Maps stödjer max 27 stopp totalt (25 waypoints). Dela upp din rutt i segment.");
   }
 
+  let apiCalls = 0;
+
   try {
+    console.log("🌐 Anropar Directions API...");
+    apiCalls++;
+    
     const result = await new Promise<any>((resolve, reject) => {
       directionsService.route(
         {
@@ -59,6 +69,7 @@ export const optimizeRoute = async (
           region: "SE",
         },
         (result: any, status: any) => {
+          console.log("📡 Directions API svar:", status);
           if (status === "OK") {
             resolve(result);
           } else {
@@ -67,6 +78,8 @@ export const optimizeRoute = async (
         }
       );
     });
+
+    console.log("✅ Directions API success");
 
     // Bygg resultat med kumulativa värden
     const segments: RouteSegment[] = [];
@@ -86,6 +99,8 @@ export const optimizeRoute = async (
     // Mellanliggande segment
     const legs = result.routes[0].legs;
     const waypointOrder = result.routes[0].waypoint_order || [];
+
+    console.log("🗺️ Bearbetar", legs.length, "legs");
 
     legs.forEach((leg: any, index: number) => {
       cumulativeDistance += leg.distance.value;
@@ -110,14 +125,17 @@ export const optimizeRoute = async (
       });
     });
 
+    console.log("✅ Rutt optimerad!", { segments: segments.length, apiCalls });
+
     return {
       segments,
       totalDistance: cumulativeDistance,
       totalDuration: cumulativeDuration,
       polyline: result.routes[0].overview_polyline,
+      apiCalls,
     };
   } catch (error: any) {
-    console.error("Route optimization error:", error);
+    console.error("❌ Route optimization error:", error);
     throw new Error(error.message || "Kunde inte optimera rutten");
   }
 };
