@@ -56,6 +56,11 @@ const handler = async (req: Request): Promise<Response> => {
       ],
     });
 
+    if (emailResponse.error) {
+      console.error("Resend error:", emailResponse.error);
+      throw new Error(emailResponse.error.message || "Failed to send email");
+    }
+
     console.log("Email sent successfully:", emailResponse);
 
     return new Response(JSON.stringify(emailResponse), {
