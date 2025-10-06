@@ -168,7 +168,7 @@ export const optimizeRoute = async (
         intermediates: intermediates.length > 0 ? intermediates : undefined,
         travelMode: "DRIVE",
         routingPreference,
-        computeAlternativeRoutes: false,
+        computeAlternativeRoutes: true, // Hämta alternativa rutter
         languageCode: "sv",
         units: "METRIC",
         // Aktivera waypoint-optimering alltid för bästa resultat

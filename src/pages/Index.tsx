@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddressInput } from "@/components/AddressInput";
 import { StartEndInput } from "@/components/StartEndInput";
 import { SavedRoutes } from "@/components/SavedRoutes";
+import { TrafficTicker } from "@/components/TrafficTicker";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FontToggle } from "@/components/FontToggle";
 import { BulkImport } from "@/components/BulkImport";
@@ -266,6 +267,9 @@ const Index = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+        {/* Trafikvarningar */}
+        <TrafficTicker />
+        
         {/* Tidigare rutter */}
         <SavedRoutes />
 
