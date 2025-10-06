@@ -1,4 +1,1 @@
-project_id = "dev-server"
-
-[functions.send-route-email]
-verify_jwt = false
+project_id = "ukqvcqhuyhjotyozvcui"
