@@ -76,8 +76,23 @@ export const TrafficTicker = () => {
     }
   };
 
-  if (isLoading || incidents.length === 0) {
+  if (isLoading) {
     return null;
+  }
+
+  if (incidents.length === 0) {
+    return (
+      <div className="animate-in slide-in-from-top duration-500">
+        <Alert className="border-l-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-accent" />
+            <AlertDescription className="text-sm">
+              Inga trafikvarningar just nu.
+            </AlertDescription>
+          </div>
+        </Alert>
+      </div>
+    );
   }
 
   const currentIncident = incidents[currentIndex];

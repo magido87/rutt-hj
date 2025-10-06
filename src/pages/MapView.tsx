@@ -249,9 +249,9 @@ export default function MapView() {
             )}
             
             {/* Alternativa rutter */}
-            {alternativeRoutes && alternativeRoutes.length > 0 && (
-              <div className="mt-4 p-4 border rounded-lg bg-muted/20">
-                <h3 className="text-sm font-semibold mb-3">Alternativa rutter</h3>
+            <div className="mt-4 p-4 border rounded-lg bg-muted/20">
+              <h3 className="text-sm font-semibold mb-3">Alternativa rutter</h3>
+              {alternativeRoutes && alternativeRoutes.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <Button
                     variant={selectedRouteIndex === 0 ? "default" : "outline"}
@@ -283,8 +283,12 @@ export default function MapView() {
                     </Button>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Inga alternativa rutter hittades.
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="map" className="w-full">
