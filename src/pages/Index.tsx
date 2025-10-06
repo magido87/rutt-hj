@@ -203,10 +203,10 @@ const Index = () => {
       return;
     }
 
-    // Validering 4: Max 50 stopp
-    if (allAddresses.length > 50) {
+    // Validering 4: Max 100 stopp
+    if (allAddresses.length > 100) {
       console.error("❌ För många adresser");
-      toast.error("Max 50 stopp stöds. Ta bort några adresser.");
+      toast.error("Max 100 stopp stöds. Ta bort några adresser.");
       return;
     }
 
