@@ -1,1 +1,10 @@
 project_id = "ukqvcqhuyhjotyozvcui"
+
+[functions.send-route-email]
+verify_jwt = false
+
+[functions.trafikverket]
+verify_jwt = false
+
+[functions.parse-document-addresses]
+verify_jwt = false

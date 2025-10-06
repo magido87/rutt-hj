@@ -5,10 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseAddresses } from "@/utils/addressParser";
 import { Address } from "@/types/route";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, CheckCircle, AlertCircle, XCircle, Loader2 } from "lucide-react";
+import { Upload, CheckCircle, AlertCircle, XCircle, Loader2, FileText, FileSpreadsheet, File } from "lucide-react";
+import * as XLSX from 'xlsx';
 
 interface ParsedAddress {
   original: string;
@@ -29,6 +32,72 @@ export function BulkImport({ open, onOpenChange, onImport, apiKey }: BulkImportP
   const [inputText, setInputText] = useState("");
   const [parsedAddresses, setParsedAddresses] = useState<ParsedAddress[]>([]);
   const [isValidating, setIsValidating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    
+    try {
+      let extractedText = "";
+      
+      // Handle different file types
+      if (file.type === 'application/pdf') {
+        // PDF - använd edge function
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const { data, error } = await supabase.functions.invoke('parse-document-addresses', {
+          body: formData,
+        });
+        
+        if (error) throw error;
+        if (data?.addresses) {
+          extractedText = data.addresses.join('\n');
+        }
+      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        // Excel
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer);
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+        
+        // Extrahera alla celler som innehåller adress-liknande text
+        const addresses: string[] = [];
+        data.forEach((row: any) => {
+          row.forEach((cell: any) => {
+            if (typeof cell === 'string' && cell.length > 5) {
+              addresses.push(cell);
+            }
+          });
+        });
+        extractedText = addresses.join('\n');
+      } else if (file.name.endsWith('.csv')) {
+        // CSV
+        const text = await file.text();
+        const lines = text.split('\n');
+        extractedText = lines.map(line => {
+          // Ta första kolumnen eller hela raden om det är en kolumn
+          const columns = line.split(/[,;]/);
+          return columns[0]?.trim() || line.trim();
+        }).join('\n');
+      }
+      
+      if (extractedText) {
+        setInputText(extractedText);
+        toast.success(`${file.name} uppladdad!`);
+      } else {
+        toast.error("Kunde inte extrahera adresser från filen");
+      }
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error("Fel vid uppladdning av fil");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleParse = () => {
     const cleaned = parseAddresses(inputText);
@@ -151,19 +220,80 @@ export function BulkImport({ open, onOpenChange, onImport, apiKey }: BulkImportP
           {/* Input Area */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Steg 1: Klistra in adresser</CardTitle>
+              <CardTitle className="text-base">Steg 1: Ladda upp eller klistra in</CardTitle>
               <CardDescription>
-                Exempel: "Elcab Dalhemsvägen 2, Torslanda" → "Dalhemsvägen 2, Torslanda"
+                Stödjer PDF, Excel (.xlsx/.xls) och CSV-filer
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Elcab Dalhemsvägen 2, Torslanda&#10;Lingonvägen 35, Floda&#10;Importgatan15 Hisings Backa&#10;..."
-                className="min-h-[200px] font-mono text-sm"
-              />
-              <Button onClick={handleParse} disabled={!inputText.trim()}>
+              <Tabs defaultValue="text" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="text">Klistra in</TabsTrigger>
+                  <TabsTrigger value="file">Ladda upp fil</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="text" className="space-y-4">
+                  <Textarea
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    placeholder="Elcab Dalhemsvägen 2, Torslanda&#10;Lingonvägen 35, Floda&#10;Importgatan15 Hisings Backa&#10;..."
+                    className="min-h-[200px] font-mono text-sm"
+                  />
+                </TabsContent>
+                
+                <TabsContent value="file" className="space-y-4">
+                  <div className="border-2 border-dashed rounded-lg p-8 text-center space-y-4">
+                    <div className="flex justify-center gap-4">
+                      <FileText className="h-12 w-12 text-muted-foreground" />
+                      <FileSpreadsheet className="h-12 w-12 text-muted-foreground" />
+                      <File className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold mb-2">Ladda upp dokument</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        PDF, Excel eller CSV med adresser
+                      </p>
+                      <input
+                        type="file"
+                        accept=".pdf,.xlsx,.xls,.csv"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="file-upload"
+                      />
+                      <label htmlFor="file-upload">
+                        <Button asChild disabled={isUploading}>
+                          <span>
+                            {isUploading ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Laddar upp...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="mr-2 h-4 w-4" />
+                                Välj fil
+                              </>
+                            )}
+                          </span>
+                        </Button>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  {inputText && (
+                    <div className="mt-4">
+                      <p className="text-sm text-muted-foreground mb-2">Extraherad text:</p>
+                      <Textarea
+                        value={inputText}
+                        onChange={(e) => setInputText(e.target.value)}
+                        className="min-h-[200px] font-mono text-sm"
+                      />
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+              
+              <Button onClick={handleParse} disabled={!inputText.trim() || isUploading}>
                 <Upload className="mr-2 h-4 w-4" />
                 Parsa adresser
               </Button>
