@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddressInput } from "@/components/AddressInput";
 import { StartEndInput } from "@/components/StartEndInput";
 import { SavedRoutes } from "@/components/SavedRoutes";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
 import { optimizeRoute, OptimizedRoute } from "@/utils/routeOptimizer";
 import { saveRoute } from "@/utils/routeStorage";
@@ -196,17 +197,20 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b-2 border-border sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="bg-card border-b-2 border-border sticky top-0 z-10 shadow-sm backdrop-blur-sm bg-card/95">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">
             Ruttoptimering
           </h1>
-          <Link to="/settings">
-            <Button variant="outline" className="h-12 px-4">
-              <SettingsIcon className="h-5 w-5 md:mr-2" />
-              <span className="hidden md:inline">Inställningar</span>
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link to="/settings">
+              <Button variant="outline" className="h-12 px-4">
+                <SettingsIcon className="h-5 w-5 md:mr-2" />
+                <span className="hidden md:inline">Inställningar</span>
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 

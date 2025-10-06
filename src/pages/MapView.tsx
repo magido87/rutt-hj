@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RouteMap } from "@/components/RouteMap";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { ArrowLeft, MapPin, Clock, Route, AlertCircle } from "lucide-react";
 
 interface RouteSegment {
@@ -98,8 +99,8 @@ export default function MapView() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b-2 border-border sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="bg-card border-b-2 border-border sticky top-0 z-10 shadow-sm backdrop-blur-sm bg-card/95">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <Link to="/">
               <Button variant="outline" size="icon" className="h-12 w-12">
@@ -110,6 +111,7 @@ export default function MapView() {
               Optimerad rutt
             </h1>
           </div>
+          <ThemeToggle />
         </div>
       </header>
 
